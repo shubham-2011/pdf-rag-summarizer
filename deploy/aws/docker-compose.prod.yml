@@ -25,18 +25,12 @@ services:
     volumes:
       # Persistent host storage: vector stores, SQLite registry, and uploads survive restarts
       - ../../backend/storage:/app/storage
-    deploy:
-      resources:
-        limits:
-          memory: 4096M
-        reservations:
-          memory: 2048M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-      interval: 30s
+      interval: 20s
       timeout: 10s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 45s
 
   caddy:
     image: caddy:2-alpine
@@ -52,8 +46,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
 
 volumes:
   caddy_data:
