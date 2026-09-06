@@ -17,14 +17,3 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
       - ./backend/storage:/app/storage
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: pdf_rag_frontend
-    restart: always
-    ports:
-      - "5173:80"
-    depends_on:
-      - backend
