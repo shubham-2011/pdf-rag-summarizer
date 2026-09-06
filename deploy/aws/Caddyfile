@@ -1,0 +1,36 @@
+{$DOMAIN_NAME::80} {
+    # Reverse proxy all requests to the FastAPI backend service
+    reverse_proxy backend:8000 {
+        header_up Host {upstream_hostport}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        # Generous timeouts for large document upload & multi-stage RAG inference
+        transport http {
+            response_header_timeout 180s
+            dial_timeout 10s
+        }
+    }
+
+    # Enable gzip and zstandard compression
+    encode gzip zstd
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+
+    # Max body size: 60MB to allow 50MB file uploads
+    request_body {
+        max_size 60MB
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
