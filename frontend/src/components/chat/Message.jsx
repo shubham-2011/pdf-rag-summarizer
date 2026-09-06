@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Bot, User, Copy, Check, Cpu } from 'lucide-react';
+import { Copy, Check, Clock, ShieldCheck } from 'lucide-react';
 import SourcePanel from './SourcePanel';
 
 export default function Message({ message }) {
@@ -14,56 +14,58 @@ export default function Message({ message }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  if (isUser) {
+    return (
+      <div className="inquiry-user-entry">
+        <div className="inquiry-meta-bar">
+          <span className="inquiry-tag">Query / Inquiry</span>
+        </div>
+        <div className="inquiry-text">
+          {message.content}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`chat-message-row ${isUser ? 'user-row' : 'bot-row'}`}>
-      <div className="chat-avatar">
-        {isUser ? (
-          <div className="avatar-user">
-            <User size={14} strokeWidth={1.5} />
-          </div>
-        ) : (
-          <div className="avatar-bot">
-            <Bot size={14} strokeWidth={1.5} />
-          </div>
-        )}
-      </div>
-
-      <div className="chat-message-bubble">
-        <div className="message-header-bar">
-          <span className="message-sender-name">
-            {isUser ? 'You' : 'Document Intelligence'}
-          </span>
-
-          <div className="message-actions">
-            {!isUser && message.served_by && (
-              <span className="meta-tag mono-label" title={`Served by: ${message.served_by}`}>
-                <Cpu size={10} strokeWidth={1.5} />
-                {message.served_by.replace(/_/g, ' ')}
-                {message.latency_ms ? ` · ${Math.round(message.latency_ms)}ms` : ''}
-              </span>
-            )}
-            
-            <button 
-              type="button" 
-              className="action-icon-btn" 
-              onClick={handleCopy} 
-              title="Copy response"
-            >
-              {copied ? <Check size={12} className="text-success" /> : <Copy size={12} strokeWidth={1.5} />}
-            </button>
-          </div>
+    <div className="finding-entry">
+      <div className="finding-meta-bar">
+        <div className="finding-tag-group">
+          <ShieldCheck size={14} style={{ color: 'var(--accent-cyan)' }} />
+          <span className="finding-tag">Grounded Finding</span>
+          {message.served_by && (
+            <span className="finding-stats">
+              • {message.served_by.replace(/_/g, ' ')}
+            </span>
+          )}
+          {message.latency_ms ? (
+            <span className="finding-stats">
+              <Clock size={11} /> {Math.round(message.latency_ms)}ms
+            </span>
+          ) : null}
         </div>
 
-        <div className="markdown-body">
-          <ReactMarkdown>
-            {message.content}
-          </ReactMarkdown>
+        <div className="finding-actions">
+          <button 
+            type="button" 
+            className="action-btn-subtle" 
+            onClick={handleCopy} 
+            title="Copy finding"
+          >
+            {copied ? <Check size={13} style={{ color: 'var(--accent-emerald)' }} /> : <Copy size={13} />}
+          </button>
         </div>
-
-        {!isUser && message.sources && message.sources.length > 0 && (
-          <SourcePanel sources={message.sources} />
-        )}
       </div>
+
+      <div className="markdown-body">
+        <ReactMarkdown>
+          {message.content}
+        </ReactMarkdown>
+      </div>
+
+      {message.sources && message.sources.length > 0 && (
+        <SourcePanel sources={message.sources} />
+      )}
     </div>
   );
 }

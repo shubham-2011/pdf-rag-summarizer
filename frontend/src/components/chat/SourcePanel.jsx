@@ -1,43 +1,46 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Layers } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileCheck } from 'lucide-react';
 import SourceCard from './SourceCard';
 
 export default function SourcePanel({ sources }) {
   const [isOpen, setIsOpen] = useState(false);
   if (!sources || sources.length === 0) return null;
 
-  const citedPages = Array.from(new Set(
+  const citedUnits = Array.from(new Set(
     sources
       .map(s => (s.page === '🌐 Web Search' || s.page === 'web') ? 'web' : `p.${s.page}`)
       .filter(Boolean)
   ));
   
-  const summaryPages = citedPages.join(', ');
+  const unitList = citedUnits.join(', ');
 
   return (
-    <div className="source-panel-container">
+    <div className="evidence-panel">
       <button 
         type="button"
-        className="source-panel-toggle"
+        className="evidence-panel-header"
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
       >
-        <span className="source-panel-toggle-left">
-          <Layers size={13} strokeWidth={1.5} className="text-accent" />
-          <span className="source-count-label">
-            {sources.length} {sources.length === 1 ? 'source' : 'sources'}
+        <div className="evidence-header-left">
+          <FileCheck size={13} strokeWidth={1.7} style={{ color: 'var(--accent-cyan)' }} />
+          <span>Cited Sources:</span>
+          <span className="evidence-count-pill">
+            {sources.length} {sources.length === 1 ? 'passage' : 'passages'}
           </span>
-          <span className="source-pages-pill mono-label">
-            {summaryPages}
-          </span>
-        </span>
-        <span className="source-panel-toggle-icon">
-          {isOpen ? <ChevronDown size={14} strokeWidth={1.5} /> : <ChevronRight size={14} strokeWidth={1.5} />}
-        </span>
+          {unitList && (
+            <span className="mono" style={{ color: 'var(--text-muted)', fontSize: '0.725rem' }}>
+              [{unitList}]
+            </span>
+          )}
+        </div>
+        <div>
+          {isOpen ? <ChevronDown size={14} strokeWidth={1.7} /> : <ChevronRight size={14} strokeWidth={1.7} />}
+        </div>
       </button>
 
       {isOpen && (
-        <div className="source-cards-grid animate-fade-in">
+        <div className="evidence-grid">
           {sources.map((src, idx) => (
             <SourceCard key={idx} source={src} />
           ))}

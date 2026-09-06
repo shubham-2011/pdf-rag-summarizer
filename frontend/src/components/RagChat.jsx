@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { queryChatApi } from '../api/client';
-import { Bot, Trash2 } from 'lucide-react';
+import { Terminal, Trash2 } from 'lucide-react';
 import MessageList from './chat/MessageList';
 import Composer from './chat/Composer';
 
@@ -13,7 +13,7 @@ export default function RagChat({ documentId, apiKey }) {
   
   const abortControllerRef = useRef(null);
 
-  // 💾 Load persistent chat history for the active documentId from localStorage
+  // Load persistent chat history for the active documentId from localStorage
   useEffect(() => {
     if (documentId) {
       setError(null);
@@ -33,7 +33,7 @@ export default function RagChat({ documentId, apiKey }) {
     }
   }, [documentId]);
 
-  // 💾 Save chat history to localStorage whenever messages change
+  // Save chat history to localStorage whenever messages change
   useEffect(() => {
     if (documentId && messages.length > 0) {
       localStorage.setItem(`rag_chat_${documentId}`, JSON.stringify(messages));
@@ -42,7 +42,7 @@ export default function RagChat({ documentId, apiKey }) {
 
   const handleClearHistory = () => {
     if (!documentId) return;
-    if (window.confirm("Are you sure you want to clear chat history for this document?")) {
+    if (window.confirm("Clear all recorded inquiries and evidence for this document?")) {
       localStorage.removeItem(`rag_chat_${documentId}`);
       setMessages([]);
       setError(null);
@@ -64,7 +64,7 @@ export default function RagChat({ documentId, apiKey }) {
     setInputQuery('');
     setError(null);
 
-    // Cancel any previous in-flight request
+    // Cancel previous in-flight request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -93,7 +93,6 @@ export default function RagChat({ documentId, apiKey }) {
         controller.signal
       );
 
-
       const botMessage = {
         role: 'assistant',
         content: data.answer,
@@ -106,9 +105,9 @@ export default function RagChat({ documentId, apiKey }) {
       setMessages(prev => [...prev, botMessage]);
     } catch (err) {
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
-        console.log('User cancelled the query.');
+        console.log('User cancelled query.');
       } else {
-        console.error('Chat query error:', err);
+        console.error('Inquiry error:', err);
         const errObj = {
           type: err.response ? 'server' : 'network',
           status: err.response ? err.response.status : 0,
@@ -124,28 +123,29 @@ export default function RagChat({ documentId, apiKey }) {
   };
 
   return (
-    <div className="chat-container">
-      <div className="chat-header">
-        <div className="chat-header-title">
-          <div className="chat-header-icon">
-            <Bot size={18} strokeWidth={1.5} className="text-accent" />
-          </div>
-          <div>
-            <h2 className="chat-heading">Document Intelligence</h2>
-            <p className="chat-subheading">Page-grounded retrieval & synthesis</p>
-          </div>
+    <div className="inquiry-column">
+      <div className="column-header">
+        <div className="column-heading-wrap">
+          <Terminal size={15} style={{ color: 'var(--accent-cyan)' }} />
+          <h2 className="column-title">Source Verification & Inquiry</h2>
+          {messages.length > 0 && (
+            <span className="mono" style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+              ({Math.ceil(messages.length / 2)} inquiries)
+            </span>
+          )}
         </div>
 
-        <div className="chat-header-actions">
+        <div className="column-actions">
           {messages.length > 0 && (
             <button
               type="button"
               onClick={handleClearHistory}
-              title="Clear chat history for this document"
-              className="clear-history-btn"
+              title="Clear inquiry records"
+              className="icon-button"
+              style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
             >
-              <Trash2 size={13} strokeWidth={1.5} />
-              <span>Clear History</span>
+              <Trash2 size={12} />
+              <span>Clear Ledger</span>
             </button>
           )}
         </div>
@@ -177,5 +177,3 @@ export default function RagChat({ documentId, apiKey }) {
     </div>
   );
 }
-
-

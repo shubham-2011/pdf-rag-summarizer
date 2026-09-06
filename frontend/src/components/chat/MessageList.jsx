@@ -1,13 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import Message from './Message';
 import ErrorMessage from './ErrorMessage';
-import { Bot, Sparkles, Loader2 } from 'lucide-react';
+import { Search, Loader2, ArrowRight } from 'lucide-react';
 
-const STARTER_PROMPTS = [
-  'What is this document about?',
-  'Summarize the core technical findings.',
-  'How many pages and sections does this have?',
-  'List the primary sections and outline.'
+const PRESET_INQUIRIES = [
+  'What is the core premise and conclusion of this document?',
+  'List the primary methodologies, findings, and empirical figures.',
+  'Identify key risks, open questions, and next steps described.',
+  'Summarize the quantitative metrics, tables, and statistics.'
 ];
 
 export default function MessageList({ messages, loading, error, onRetry, onSelectPrompt }) {
@@ -18,28 +18,27 @@ export default function MessageList({ messages, loading, error, onRetry, onSelec
   }, [messages, loading, error]);
 
   return (
-    <div className="message-list-viewport">
+    <div className="inquiry-feed-viewport">
       {messages.length === 0 && !loading && (
-        <div className="empty-chat-state animate-fade-in">
-          <div className="empty-icon-wrapper">
-            <Bot size={24} strokeWidth={1.5} className="text-accent" />
+        <div className="inquiry-ledger-empty">
+          <div className="ledger-empty-icon">
+            <Search size={22} strokeWidth={1.8} />
           </div>
-          <h3 className="empty-state-title">Document Intelligence Assistant</h3>
-          <p className="empty-state-desc">
-            Ask factual questions with exact page grounding, request comprehensive summaries, or navigate structural sections.
+          <h3 className="ledger-empty-title">Document Inquiry & Fact-Checking Console</h3>
+          <p className="ledger-empty-desc">
+            Submit inquiries to inspect exact page-anchored passages, verify claims, or extract quantitative data.
           </p>
 
-          <div className="starter-chips-grid">
-            {STARTER_PROMPTS.map((prompt, i) => (
-              <button
+          <div className="preset-queries-ledger">
+            {PRESET_INQUIRIES.map((prompt, i) => (
+              <div
                 key={i}
-                type="button"
-                className="starter-chip"
+                className="preset-query-item"
                 onClick={() => onSelectPrompt && onSelectPrompt(prompt)}
               >
-                <Sparkles size={12} strokeWidth={1.5} className="chip-icon" />
                 <span>{prompt}</span>
-              </button>
+                <ArrowRight size={13} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
+              </div>
             ))}
           </div>
         </div>
@@ -50,18 +49,9 @@ export default function MessageList({ messages, loading, error, onRetry, onSelec
       ))}
 
       {loading && (
-        <div className="chat-message-row bot-row loading-row animate-fade-in">
-          <div className="chat-avatar">
-            <div className="avatar-bot pulse">
-              <Bot size={14} strokeWidth={1.5} />
-            </div>
-          </div>
-          <div className="chat-message-bubble loading-bubble">
-            <div className="loading-indicator">
-              <Loader2 size={14} strokeWidth={1.5} className="animate-spin text-accent" />
-              <span>Retrieving & synthesizing document passages...</span>
-            </div>
-          </div>
+        <div className="ledger-loading-card">
+          <Loader2 size={16} strokeWidth={2} className="animate-spin" style={{ color: 'var(--accent-cyan)' }} />
+          <span>Scanning index vectors & synthesizing grounded evidence...</span>
         </div>
       )}
 

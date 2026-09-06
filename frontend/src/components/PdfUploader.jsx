@@ -1,29 +1,28 @@
 import React, { useState, useRef } from 'react';
 import { uploadPdfApi } from '../api/client';
-import { Upload, FileText, CheckCircle, AlertOctagon, Loader, ExternalLink } from 'lucide-react';
+import { FileUp, Loader2, AlertOctagon, CheckCircle2, ShieldCheck, FileText, ExternalLink } from 'lucide-react';
 
 export default function PdfUploader({ apiKey, onPdfUploaded }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [fileInfo, setFileInfo] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files && e.target.files[0];
+  const processFile = async (file) => {
     if (!file) return;
 
     const allowedExtensions = ['.pdf', '.docx', '.doc', '.pptx', '.ppt'];
     const hasValidExt = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
     if (!hasValidExt) {
-      setError('Document Cannot Be Embedded: Only PDF, Word (.docx, .doc), and PowerPoint (.pptx, .ppt) documents are supported.');
+      setError('Unsupported File Format: Only PDF, Word (.docx, .doc), and PowerPoint (.pptx, .ppt) documents can be audited.');
       return;
     }
 
-    // Client-side file size pre-audit (50MB limit)
+    // Pre-audit: 50MB limit
     const maxSizeBytes = 50 * 1024 * 1024;
     if (file.size > maxSizeBytes) {
       const fileSizeMb = (file.size / (1024 * 1024)).toFixed(2);
-      setError(`Document Cannot Be Embedded: File size (${fileSizeMb} MB) exceeds maximum allowed limit of 50 MB.`);
+      setError(`File Size Exceeded: Document is ${fileSizeMb} MB. Maximum allowed threshold is 50 MB.`);
       return;
     }
 
@@ -32,16 +31,36 @@ export default function PdfUploader({ apiKey, onPdfUploaded }) {
 
     try {
       const data = await uploadPdfApi(file, apiKey);
-      setFileInfo(data);
       if (onPdfUploaded) {
         onPdfUploaded(data);
       }
     } catch (err) {
-      console.error("Upload error:", err);
-      setError(err.response?.data?.detail || err.message || 'PDF Cannot Be Embedded: Upload or parsing failed.');
+      console.error("Ingestion audit error:", err);
+      setError(err.response?.data?.detail || err.message || 'Ingestion Audit Failed: Could not extract containers or create vector index.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    processFile(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    processFile(file);
   };
 
   const handleBoxClick = () => {
@@ -51,96 +70,64 @@ export default function PdfUploader({ apiKey, onPdfUploaded }) {
   };
 
   return (
-    <div className="card">
+    <div style={{ width: '100%' }}>
       <div 
-        className="dropzone" 
-        onClick={handleBoxClick} 
-        style={{ cursor: 'pointer', touchAction: 'manipulation', padding: '2.5rem 1rem' }}
+        className={`ingestion-vault ${isDragging ? 'dragging' : ''}`}
+        onClick={handleBoxClick}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        role="button"
+        tabIndex={0}
       >
         <input 
           ref={fileInputRef}
           type="file" 
           accept=".pdf,.docx,.doc,.pptx,.ppt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation" 
           onChange={handleFileChange} 
-          id="pdf-input" 
+          id="document-upload-input" 
           style={{ display: 'none' }} 
         />
+
         {loading ? (
           <div>
-            <Loader className="animate-spin" size={44} style={{ color: '#6366f1', margin: '0 auto 1rem' }} />
-            <h3 style={{ fontSize: '1.1rem' }}>Auditing & Embedding Document...</h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Validating text extractability and indexing into Vector Store...</p>
+            <div className="vault-icon-wrap">
+              <Loader2 className="animate-spin" size={24} />
+            </div>
+            <h3 className="vault-headline">Auditing & Indexing Document Passages...</h3>
+            <p className="vault-subline">
+              Extracting structural AST containers, validating text layer, and generating offline vector embeddings.
+            </p>
           </div>
         ) : (
           <div>
-            <Upload size={44} style={{ color: '#6366f1', margin: '0 auto 1rem' }} />
-            <h3 style={{ fontSize: '1.1rem' }}>Tap here or Drag & Drop PDF, Word, or PPT to Audit & Embed</h3>
-            <p style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.85rem' }}>Max file size: 50 MB • Formats: PDF, DOCX, PPTX</p>
+            <div className="vault-icon-wrap">
+              <FileUp size={24} strokeWidth={1.8} />
+            </div>
+            <h3 className="vault-headline">Select or Drop Document to Initialize Dossier</h3>
+            <p className="vault-subline">
+              Click to browse your filesystem or drag a file directly into this secure ingestion vault.
+            </p>
+            <div className="vault-security-note">
+              <ShieldCheck size={14} style={{ color: 'var(--accent-cyan)' }} />
+              <span>Offline Retrieval • Nomic 768d Embeddings • Max 50 MB</span>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Prominent Red Alert Component for Failed PDF Audits */}
       {error && (
-        <div style={{ 
-          marginTop: '1.25rem', 
-          background: 'rgba(239, 68, 68, 0.15)', 
-          border: '1.5px solid #ef4444', 
-          padding: '1rem 1.25rem', 
-          borderRadius: '10px', 
-          display: 'flex', 
-          alignItems: 'flex-start', 
-          gap: '0.75rem' 
-        }}>
-          <AlertOctagon size={24} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} />
-          <div style={{ width: '100%' }}>
-            <strong style={{ color: '#fca5a5', display: 'block', fontSize: '1rem', marginBottom: '0.25rem' }}>
-              ⚠️ THIS DOCUMENT CANNOT BE EMBEDDED
-            </strong>
-            <span style={{ color: '#f8fafc', fontSize: '0.92rem', lineHeight: '1.5' }}>
-              {error}
-            </span>
+        <div className="audit-error-card">
+          <AlertOctagon size={20} style={{ color: 'var(--accent-rose)', flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div className="audit-error-title">INGESTION AUDIT REJECTED</div>
+            <div className="audit-error-desc">{error}</div>
             {error.toLowerCase().includes('network error') && (
-              <div style={{ marginTop: '0.75rem', fontSize: '0.88rem', background: 'rgba(99, 102, 241, 0.15)', padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid #6366f1' }}>
-                <span style={{ color: '#c7d2fe' }}>💡 <strong>Localtunnel Authorization Required:</strong> If using localtunnel, click below once to authorize your browser, then try uploading again:</span>
-                <div style={{ marginTop: '0.4rem' }}>
-                  <a 
-                    href="https://eighty-feet-unite.loca.lt" 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    style={{ color: '#a5b4fc', textDecoration: 'underline', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-                  >
-                    Open Authorization Link (Verification IP: 45.250.227.158) <ExternalLink size={14} />
-                  </a>
-                </div>
+              <div style={{ marginTop: '0.65rem', fontSize: '0.8rem', background: 'rgba(2, 132, 199, 0.12)', padding: '0.5rem 0.75rem', borderRadius: '4px', border: '1px solid var(--border-medium)' }}>
+                <span style={{ color: '#bae6fd' }}>Notice: If using a tunnel proxy, ensure the endpoint authorization page has been bypassed in your browser.</span>
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {fileInfo && (
-        <div style={{ marginTop: '1rem', background: '#0f172a', padding: '1rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <FileText size={24} style={{ color: '#34d399' }} />
-            <div>
-              <strong style={{ color: '#f8fafc', fontSize: '0.95rem' }}>{fileInfo.filename}</strong>
-              <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                {fileInfo.format === 'docx' || fileInfo.filename?.toLowerCase().endsWith('.docx') || fileInfo.filename?.toLowerCase().endsWith('.doc') ? (
-                  `${fileInfo.details || 'Word Document'} • ${fileInfo.total_chunks} Vector Chunks (Audit Passed)`
-                ) : fileInfo.format === 'pptx' || fileInfo.filename?.toLowerCase().endsWith('.pptx') || fileInfo.filename?.toLowerCase().endsWith('.ppt') ? (
-                  `${fileInfo.details || `${fileInfo.unit_count || 1} Slides`} • ${fileInfo.total_chunks} Vector Chunks (Audit Passed)`
-                ) : fileInfo.format === 'xlsx' || fileInfo.filename?.toLowerCase().endsWith('.xlsx') || fileInfo.filename?.toLowerCase().endsWith('.csv') ? (
-                  `${fileInfo.details || `${fileInfo.unit_count || 1} Sheets`} • ${fileInfo.total_chunks} Vector Chunks (Audit Passed)`
-                ) : (
-                  `${fileInfo.total_pages || fileInfo.unit_count || 1} Pages • ${fileInfo.total_chunks} Vector Chunks (Audit Passed)`
-                )}
-              </div>
-            </div>
-          </div>
-          <span style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.85rem' }}>
-            <CheckCircle size={18} /> Indexed
-          </span>
         </div>
       )}
     </div>

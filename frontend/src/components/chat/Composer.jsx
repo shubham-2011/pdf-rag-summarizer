@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Send, Globe, Square } from 'lucide-react';
+import { CornerDownLeft, Globe, Square } from 'lucide-react';
 
 export default function Composer({
   inputQuery,
@@ -16,7 +16,7 @@ export default function Composer({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 140)}px`;
     }
   }, [inputQuery]);
 
@@ -30,23 +30,23 @@ export default function Composer({
   };
 
   return (
-    <form className="composer-form" onSubmit={(e) => { e.preventDefault(); if (inputQuery.trim() && !loading && !disabled) onSend(); }}>
-      <div className="composer-box">
+    <form className="inquiry-composer-area" onSubmit={(e) => { e.preventDefault(); if (inputQuery.trim() && !loading && !disabled) onSend(); }}>
+      <div className="query-input-box">
         <textarea
           ref={textareaRef}
-          className="composer-textarea"
+          className="query-textarea"
           rows={1}
-          placeholder={disabled ? "Upload a document to begin questioning..." : "Ask a question, request an executive summary, or query specific sections..."}
+          placeholder={disabled ? "Ingest a document to begin questioning..." : "Enter inquiry, verify specific clauses, or cross-examine facts..."}
           value={inputQuery}
           onChange={(e) => setInputQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={disabled}
         />
 
-        <div className="composer-toolbar">
-          <label className={`web-search-toggle ${enableWebSearch ? 'active' : ''}`} title="Augment retrieval with real-world web search data">
-            <Globe size={13} strokeWidth={1.5} />
-            <span>Web Search</span>
+        <div className="query-toolbar">
+          <label className={`web-toggle-label ${enableWebSearch ? 'active' : ''}`} title="Augment offline document retrieval with live web corroboration">
+            <Globe size={12} strokeWidth={1.7} />
+            <span>Web Corroboration</span>
             <input 
               type="checkbox" 
               checked={enableWebSearch} 
@@ -55,29 +55,30 @@ export default function Composer({
             />
           </label>
 
-          <div className="composer-right-actions">
-            <span className="composer-hint mono-label">
-              ↵ Send · Shift+↵ Newline
+          <div className="query-toolbar-right">
+            <span className="keyboard-shortcut-hint">
+              ↵ Query · Shift+↵ Line
             </span>
 
             {loading ? (
               <button 
                 type="button" 
-                className="abort-btn" 
+                className="btn-query-stop" 
                 onClick={onAbort} 
-                title="Stop generating response"
+                title="Halt analysis"
               >
-                <Square size={13} strokeWidth={2} fill="currentColor" />
-                <span>Stop</span>
+                <Square size={11} strokeWidth={2} fill="currentColor" />
+                <span>Halt</span>
               </button>
             ) : (
               <button 
                 type="submit" 
-                className="send-btn" 
+                className="btn-query-run" 
                 disabled={disabled || !inputQuery.trim()}
-                title="Send message"
+                title="Run inquiry"
               >
-                <Send size={14} strokeWidth={1.5} />
+                <span>Run</span>
+                <CornerDownLeft size={12} strokeWidth={2} />
               </button>
             )}
           </div>
