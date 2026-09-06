@@ -18,11 +18,10 @@ ENV PYTHONIOENCODING=utf-8
 COPY requirements.txt .
 RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 
-# Pre-download open-source models into container image
-RUN python -c "from sentence_transformers import SentenceTransformer, CrossEncoder; \
-    SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2'); \
-    SentenceTransformer('nomic-ai/nomic-embed-text-v1.5', trust_remote_code=True); \
-    CrossEncoder('BAAI/bge-reranker-base')"
+# Pre-download open-source models into container image (sequentially to conserve RAM)
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')" && \
+    python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('nomic-ai/nomic-embed-text-v1.5', trust_remote_code=True)" && \
+    python -c "from sentence_transformers import CrossEncoder; CrossEncoder('BAAI/bge-reranker-base')"
 
 # Copy backend source code
 COPY . .
