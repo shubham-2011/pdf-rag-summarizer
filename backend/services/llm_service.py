@@ -42,7 +42,7 @@ class LLMService:
                 return ChatGoogleGenerativeAI(
                     model=chosen_model,
                     google_api_key=gemini_key,
-                    temperature=0.0,
+                    temperature=temperature,
                     timeout=20,
                     max_retries=2
                 )
@@ -53,7 +53,7 @@ class LLMService:
                     return ChatGoogleGenerativeAI(
                         model="gemini-3.6-flash",
                         google_api_key=gemini_key,
-                        temperature=0.0,
+                        temperature=temperature,
                         timeout=20,
                         max_retries=2
                     )
@@ -94,6 +94,51 @@ class LLMService:
             except Exception as e:
                 print(f"[LLMService] Fallback LLM initialization error: {e}")
 
+        return None
+
+    @classmethod
+    def get_fast_model(cls, api_key: Optional[str] = None, temperature: float = 0.0) -> Optional[BaseChatModel]:
+        """Returns the fast/small tier model configured for classification, routing, and scoring (Temp 0.0)."""
+        fast_model_name = getattr(config, "LLM_FAST_MODEL", "gemini-3.5-flash-lite")
+        return cls.get_chat_model(api_key=api_key, model_name=fast_model_name, temperature=temperature)
+
+    @classmethod
+    def get_synthesis_model(cls, api_key: Optional[str] = None, temperature: float = 0.2) -> Optional[BaseChatModel]:
+        """Returns the synthesis/large tier model configured for answer generation and revision (Temp 0.2)."""
+        synthesis_model_name = getattr(config, "LLM_SYNTHESIS_MODEL", "gemini-3.6-flash")
+        return cls.get_chat_model(api_key=api_key, model_name=synthesis_model_name, temperature=temperature)
+
+    @staticmethod
+    def extract_json(raw_text: str) -> Optional[Any]:
+        """
+        Robustly extracts and parses a JSON object or array from LLM output,
+        handling markdown code fences, leading/trailing text, and unicode quirks.
+        """
+        if not raw_text or not isinstance(raw_text, str):
+            return None
+            
+        cleaned = raw_text.strip()
+        # Remove markdown code fences if present
+        if cleaned.startswith("```"):
+            lines = cleaned.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            cleaned = "\n".join(lines).strip()
+            
+        import json
+        try:
+            return json.loads(cleaned)
+        except Exception:
+            # Attempt to find innermost or first { ... } or [ ... ]
+            import re
+            match = re.search(r'(\{[\s\S]*\}|\[[\s\S]*\])', cleaned)
+            if match:
+                try:
+                    return json.loads(match.group(1))
+                except Exception:
+                    pass
         return None
 
     @classmethod

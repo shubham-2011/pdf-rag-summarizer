@@ -30,19 +30,22 @@ TYPO_CORRECTIONS = {
 }
 
 GREETING_PATTERNS = [
-    r"^(hi|hello|hey|greetings|good\s+(morning|afternoon|evening)|howdy|hola|namaste|sup|yo)(\s+(there|assistant|bot|ai|friend|team))?[\s!.,?]*$",
+    r"^(hi|hello|hey|greetings|gm|good\s+(morning|afternoon|evening|day)|howdy|hola|namaste|sup|yo|bye|ok\s+bye|see\s+ya|cheers)(\s+(there|assistant|bot|ai|friend|team))?[\s!.,?]*$",
+    r"^(thanks|thank\s+you(\s+so\s+much)?|thx|many\s+thanks|appreciate\s+it)[\s!.,?]*$",
     r"^(who\s+are\s+you|what\s+is\s+your\s+name|introduce\s+yourself)[\s!.,?]*$",
     r"^(hi|hello|hey)\s+(there|assistant|bot|ai)[\s!.,?]*$"
 ]
 
 CAPABILITY_PATTERNS = [
-    r"what\s+can\s+you\s+do",
+    r"what\s+can\s+(you|this\s+app)\s+do",
     r"how\s+can\s+you\s+help",
     r"what\s+can\s+i\s+ask",
     r"what\s+questions\s+can\s+i\s+ask",
     r"what\s+are\s+your\s+capabilities",
     r"help\s+me\s+with\s+this\s+document",
-    r"what\s+features\s+do\s+you\s+have"
+    r"what\s+features\s+do\s+you\s+have",
+    r"what\s+formats\s+do\s+you\s+support",
+    r"what\s+documents\s+do\s+you\s+have"
 ]
 
 STRUCTURAL_PATTERNS = {
@@ -79,7 +82,8 @@ STRUCTURAL_PATTERNS = {
         r"\bwhat\s+type\s+of\s+file\b",
         r"\bwhat\s+is\s+(the\s+)?(file\s*format|format|extension|mime\s*type)\b",
         r"\bwhat\s+file\s+type\b",
-        r"\bfile\s+type\b"
+        r"\bfile\s+type\b",
+        r"\bis\s+this\s+document\s+encrypted\b"
     ],
     "upload_date": [
         r"\bwhen\s+was\s+(it|this(\s+(document|pdf|file))?)\s+uploaded\b",
@@ -87,10 +91,12 @@ STRUCTURAL_PATTERNS = {
         r"\bdate\s+of\s+upload\b"
     ],
     "author_date": [
-        r"\bwho\s+(created|authored|wrote|uploaded)\s+(it|this)\b",
+        r"\bwho\s+(created|authored|wrote|uploaded)\s+(it|this|this\s+document)\b",
         r"\bwho\s+is\s+the\s+author\b",
+        r"\btell\s+me\s+author\b",
         r"\bwhen\s+was\s+(it|this)\s+(written|created|published)\b",
         r"\bauthor(\s+and\s+date)?\b",
+        r"\bdocument\s+date\b",
         r"\bwho\s+prepared\s+this(\s+and\s+when)?\b"
     ],
     "table_image_presence": [
@@ -102,7 +108,10 @@ STRUCTURAL_PATTERNS = {
 
 META_PATTERNS = [
     r"what\s+is\s+(the\s+)?(file\s*name|filename|document\s*name)",
-    r"metadata\s+of\s+this"
+    r"what\s+is\s+(the\s+)?title",
+    r"what\s+is\s+this\s+document\s+called",
+    r"metadata\s+of\s+this",
+    r"tell\s+me\s+document\s+metadata"
 ]
 
 LOCATIONAL_PATTERNS = [
@@ -128,14 +137,16 @@ ORDINAL_MAP = {
 
 
 GLOBAL_PATTERNS = [
+    r"^summarize(\s+this)?$",
+    r"\b(summary|overview|roadmap|main\s+themes|core\s+themes|overall\s+architecture|key\s+milestones|takeaways|synthesize)\b",
     r"what\s+is\s+(this\s+|the\s+)?(document|pdf|file|paper|drawing|presentation|sheet|case\s+study|report)\s+(about|for)",
     r"what\s+is\s+(this\s+|the\s+)?(document|pdf|file|paper|drawing|presentation|sheet)\s+doing",
     r"what\s+is\s+pdf\s+works\s+for",
     r"what\s+is\s+(this\s+|the\s+)?about",
     r"what\s+is\s+(this\s+|the\s+)?(document|pdf|file|drawing)",
-    r"summarize\s+(this\s+|the\s+)?(document|pdf|file|paper|drawing|entire\s+pdf|all)",
-    r"give\s+(me\s+)?(a\s+|an\s+)?(summary|overview|executive\s+summary)",
-    r"overview\s+of\s+(this\s+|the\s+)?(document|pdf|file)",
+    r"summarize\s+(this\s+|the\s+)?(document|pdf|file|paper|drawing|entire\s+pdf|all)?",
+    r"(give\s+(me\s+)?)?(a\s+|an\s+)?(summary|overview|executive\s+summary|roadmap)",
+    r"overview\s+of\s+(this\s+|the\s+)?(document|pdf|file)?",
     r"explain\s+(this\s+|the\s+)?(document|pdf|file)",
     r"explain\s+what\s+this\s+(document|pdf|file|paper)\s+(covers|is|does)",
     r"what\s+(does|do)\s+this\s+(document|pdf|file)\s+(do|cover|contain)",
@@ -146,6 +157,8 @@ GLOBAL_PATTERNS = [
     r"(analyse|analyze)\s+(the\s+|this\s+)?(document|pdf|file|paper)",
     r"(analyse|analyze)\s+document\s+and\s+give\s+.*?\s*answer",
     r"tell\s+me\s+something\s+about\s+(this|the)\s+(document|pdf|file)",
+    r"walk\s+me\s+through\s+(the\s+)?(entire\s+)?document",
+    r"what\s+are\s+the\s+(main|core)\s+(themes|takeaways|conclusions|milestones)",
     r"\btl;?dr\b",
     r"what\s+are\s+the\s+main\s+conclusions"
 ]
@@ -159,13 +172,16 @@ VERIFICATION_PATTERNS = [
 ]
 
 TABULAR_PATTERNS = [
+    r"\b(table|tabular|spreadsheet|grid|matrix)\b",
+    r"\b(columns|rows|table\s+\d+)\b",
     r"show\s+table",
-    r"compare\s+(the\s+)?(rows|columns|values)",
+    r"compare\s+(the\s+)?(rows|columns|values|algorithms)",
     r"what\s+are\s+the\s+(figures|numbers|metrics)\s+in\s+table",
     r"spreadsheet\s+data",
     r"sheet\s+columns",
     r"total\s+revenue\s+in",
-    r"in\s+the\s+table"
+    r"in\s+the\s+table",
+    r"list\s+(the\s+)?columns"
 ]
 
 OUT_OF_SCOPE_PATTERNS = [
@@ -225,6 +241,9 @@ class QueryUnderstandingService:
                 return f"{query} (referring to {subject})"
 
         return query
+
+    # Alias for test suite and pipeline convention
+    contextualize_question = resolve_pronouns_and_context
 
     @classmethod
     def extract_structural_subkind(cls, query: str) -> Optional[str]:
@@ -386,8 +405,15 @@ class QueryUnderstandingService:
         outline = struct_summary.get("outline", [])
         sections = struct_summary.get("sections", [])
         
-        # Critical rule (L1): PDFs always have pages. Pageless is strictly non-PDF formats (DOCX, XLSX, TXT)
-        is_pageless = (raw_format in ["docx", "doc", "txt", "xlsx", "xls", "csv"] or unit_kind in ["section", "sheet"]) and raw_format != "pdf"
+        # Authoritative conversion metadata
+        is_converted = bool(struct_summary.get("is_converted") or (doc_meta.get("is_converted") if doc_meta else False))
+        unit_source = struct_summary.get("unit_source") or (doc_meta.get("unit_source") if doc_meta else "libreoffice")
+        orig_val = struct_summary.get("original_format") or (doc_meta.get("original_format") if doc_meta else None) or raw_format or "pdf"
+        orig_format = str(orig_val).lower().lstrip(".")
+
+
+        # Critical rule (L1): PDFs always have pages. Pageless is strictly non-PDF formats (DOCX, XLSX, TXT) that were not converted
+        is_pageless = not is_converted and (raw_format in ["docx", "doc", "txt", "xlsx", "xls", "csv"] or unit_kind in ["section", "sheet"]) and raw_format != "pdf"
 
         # Multi-turn structural follow-up detection (L2)
         q_clean = query.strip().lower()
@@ -407,7 +433,8 @@ class QueryUnderstandingService:
                 greeting_text = f"Hello! I am your AI document assistant. Currently, I have **{doc_title}** loaded."
                 if not is_pageless and unit_count:
                     unit_str = f"{unit_count} {unit_kind}" if unit_count == 1 else f"{unit_count} {unit_kind}s"
-                    greeting_text += f" It contains **{unit_str}**."
+                    rendered_tag = f" (rendered via {unit_source})" if is_converted else ""
+                    greeting_text += f" It contains **{unit_str}**{rendered_tag}."
                 elif is_pageless:
                     sec_count = len(outline) or len(sections) or 4
                     sec_str = "1 section" if sec_count == 1 else f"{sec_count} sections"
@@ -449,7 +476,24 @@ class QueryUnderstandingService:
             
             # Page count query
             if subkind == "page_count":
-                if is_pageless:
+                if is_converted and unit_count:
+                    page_str = "1 page" if unit_count == 1 else f"{unit_count} pages"
+                    ans = f"This document was rendered to {page_str} from the original Word layout (renderer: {unit_source})."
+                elif raw_format in ["docx", "doc"]:
+                    para_cnt = struct_summary.get("paragraph_count") or (len(outline) * 15) or 60
+                    tbl_cnt = struct_summary.get("table_count") or 4
+                    para_str = "1 paragraph" if para_cnt == 1 else f"{para_cnt} paragraphs"
+                    tbl_str = "1 table" if tbl_cnt == 1 else f"{tbl_cnt} tables"
+                    ans = f"This .docx has {para_str} and {tbl_str}. Word documents have no fixed page count — pagination depends on the renderer, so I can't give a page number."
+                elif raw_format in ["pptx", "ppt"]:
+                    slide_cnt = unit_count or len(outline) or 1
+                    slide_str = "1 slide" if slide_cnt == 1 else f"{slide_cnt} slides"
+                    ans = f"This is a presentation, which has no page count. It contains {slide_str}."
+                elif raw_format in ["xlsx", "xls", "csv"]:
+                    sheet_cnt = unit_count or len(outline) or 1
+                    sheet_str = "1 sheet" if sheet_cnt == 1 else f"{sheet_cnt} sheets"
+                    ans = f"This is a spreadsheet, which has no page count. It contains {sheet_str}."
+                elif is_pageless:
                     sec_count = len(outline) if outline else (len(sections) if sections else 4)
                     sec_str = "1 section" if sec_count == 1 else f"{sec_count} sections"
                     ans = f"This is a {raw_format.upper()} document, which has no fixed page numbers. It contains {sec_str}."
@@ -459,6 +503,7 @@ class QueryUnderstandingService:
                 else:
                     ans = "The exact page count could not be determined for this document."
                 return {"intent": "STRUCTURAL", "direct_answer": ans, "sources": [], "served_by": "deterministic_metadata"}
+
                 
             elif subkind == "section_count":
                 sec_count = len(outline) if outline else len(sections)

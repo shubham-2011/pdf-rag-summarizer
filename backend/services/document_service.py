@@ -33,7 +33,13 @@ class DocumentService:
         if ext == ".pdf":
             return PDFService.audit_pdf(file_path, file_size)
 
-        if ext in [".docx", ".doc"]:
+        if ext == ".doc":
+            return False, (
+                "Legacy binary .doc format requires an external converter (LibreOffice or MS Word), "
+                "which is not available in this environment. Please convert to .docx or .pdf."
+            )
+
+        if ext == ".docx":
             try:
                 import docx
                 doc = docx.Document(file_path)
@@ -101,31 +107,140 @@ class DocumentService:
         if ext == ".pdf":
             return PDFService.process_pdf(file_path, api_key=api_key)
 
+        if ext == ".doc":
+            raise ValueError(
+                "Legacy binary .doc format requires an external converter (LibreOffice or MS Word), "
+                "which is not available in this environment. Please convert to .docx or .pdf."
+            )
+
         pages = []
         total_units = 1
 
         # 📄 1. Word Documents (.docx)
-        if ext in [".docx", ".doc"]:
+        if ext == ".docx":
             import docx
             doc = docx.Document(file_path)
-            paragraphs = []
-            for p in doc.paragraphs:
+            docx_blocks: List[Document] = []
+
+            # 1. Section Headers & Footers
+            for s_idx, section in enumerate(doc.sections):
+                try:
+                    if section.header and section.header.paragraphs:
+                        h_texts = [p.text.strip() for p in section.header.paragraphs if p.text.strip()]
+                        if h_texts:
+                            docx_blocks.append(Document(
+                                page_content=f"Header (Section {s_idx + 1}): " + " ".join(h_texts),
+                                metadata={
+                                    "source_file": file_name,
+                                    "content_type": "word_document",
+                                    "block_type": "header_footer",
+                                    "section_heading": f"Header Section {s_idx + 1}",
+                                    "unit_kind": "paragraph",
+                                    "unit_name": "paragraphs",
+                                    "paragraph_count": len(doc.paragraphs),
+                                    "table_count": len(doc.tables),
+                                    "page": 0,
+                                    "page_label": 1
+                                }
+                            ))
+                except Exception:
+                    pass
+                try:
+                    if section.footer and section.footer.paragraphs:
+                        f_texts = [p.text.strip() for p in section.footer.paragraphs if p.text.strip()]
+                        if f_texts:
+                            docx_blocks.append(Document(
+                                page_content=f"Footer (Section {s_idx + 1}): " + " ".join(f_texts),
+                                metadata={
+                                    "source_file": file_name,
+                                    "content_type": "word_document",
+                                    "block_type": "header_footer",
+                                    "section_heading": f"Footer Section {s_idx + 1}",
+                                    "unit_kind": "paragraph",
+                                    "unit_name": "paragraphs",
+                                    "paragraph_count": len(doc.paragraphs),
+                                    "table_count": len(doc.tables),
+                                    "page": 0,
+                                    "page_label": 1
+                                }
+                            ))
+                except Exception:
+                    pass
+
+            # 2. Body Paragraphs with Heading Detection
+            current_heading = "General"
+            for p_idx, p in enumerate(doc.paragraphs):
                 p_text = p.text.strip()
-                if p_text:
-                    paragraphs.append(p_text)
+                if not p_text:
+                    continue
+                if p.style and p.style.name and p.style.name.startswith("Heading"):
+                    current_heading = p_text
+                docx_blocks.append(Document(
+                    page_content=p_text,
+                    metadata={
+                        "source_file": file_name,
+                        "content_type": "word_document",
+                        "block_type": "paragraph",
+                        "section_heading": current_heading,
+                        "unit_kind": "paragraph",
+                        "unit_name": "paragraphs",
+                        "paragraph_count": len(doc.paragraphs),
+                        "table_count": len(doc.tables),
+                        "page": 0,
+                        "page_label": 1
+                    }
+                ))
+
+            # 3. Table Cells & Rows (grouped by row to maintain structure)
             for t_idx, table in enumerate(doc.tables):
                 t_rows = []
-                for row in table.rows:
+                for r_idx, row in enumerate(table.rows):
                     row_data = [c.text.strip() for c in row.cells]
                     t_rows.append(" | ".join(row_data))
                 if t_rows:
-                    paragraphs.append(f"Table {t_idx + 1}:\n" + "\n".join(t_rows))
-            
-            combined_text = "\n\n".join(paragraphs)
-            pages.append(Document(
-                page_content=combined_text,
-                metadata={"source_file": file_name, "content_type": "word_document", "page": 0, "page_label": 1}
-            ))
+                    docx_blocks.append(Document(
+                        page_content=f"Table {t_idx + 1}:\n" + "\n".join(t_rows),
+                        metadata={
+                            "source_file": file_name,
+                            "content_type": "word_document",
+                            "block_type": "table",
+                            "table_index": t_idx + 1,
+                            "section_heading": f"Table {t_idx + 1}",
+                            "unit_kind": "paragraph",
+                            "unit_name": "paragraphs",
+                            "paragraph_count": len(doc.paragraphs),
+                            "table_count": len(doc.tables),
+                            "page": 0,
+                            "page_label": 1
+                        }
+                    ))
+
+            # 4. Text Boxes & Shapes (walk Word XML)
+            try:
+                for tb_idx, txbx in enumerate(doc.element.xpath('//*[local-name()="txbxContent"]')):
+                    tb_text = " ".join("".join(txbx.itertext()).split()).strip()
+                    if tb_text:
+                        docx_blocks.append(Document(
+                            page_content=f"Callout / Text Box: {tb_text}",
+                            metadata={
+                                "source_file": file_name,
+                                "content_type": "word_document",
+                                "block_type": "text_box",
+                                "section_heading": "Text Box",
+                                "unit_kind": "paragraph",
+                                "unit_name": "paragraphs",
+                                "paragraph_count": len(doc.paragraphs),
+                                "table_count": len(doc.tables),
+                                "page": 0,
+                                "page_label": 1
+                            }
+                        ))
+            except Exception:
+                pass
+
+            pages.extend(docx_blocks)
+            total_units = len(doc.paragraphs)
+
 
         # 📊 2. PowerPoint Presentations (.pptx)
         elif ext in [".pptx", ".ppt"]:
@@ -145,11 +260,28 @@ class DocumentService:
                             tbl_rows.append(" | ".join([cell.text.strip() for cell in row.cells]))
                         if tbl_rows:
                             slide_texts.append("Table:\n" + "\n".join(tbl_rows))
+                
+                # Capture Speaker Notes tagged separately
+                try:
+                    if slide.has_notes_slide and slide.notes_slide.notes_text_frame:
+                        notes_text = slide.notes_slide.notes_text_frame.text.strip()
+                        if notes_text:
+                            slide_texts.append(f"[Speaker Notes]: {notes_text}")
+                except Exception:
+                    pass
+
                 slide_combined = "\n\n".join(slide_texts)
                 if slide_combined.strip():
                     pages.append(Document(
                         page_content=slide_combined,
-                        metadata={"source_file": file_name, "content_type": "presentation_slide", "page": s_idx, "page_label": s_idx + 1}
+                        metadata={
+                            "source_file": file_name,
+                            "content_type": "presentation_slide",
+                            "page": s_idx,
+                            "page_label": s_idx + 1,
+                            "unit_kind": "slide",
+                            "unit_name": "slides"
+                        }
                     ))
 
         # 📈 3. Excel Spreadsheets & CSV (.xlsx, .xls, .csv)
@@ -158,10 +290,20 @@ class DocumentService:
             if ext == ".csv":
                 df = pd.read_csv(file_path)
                 csv_summary = f"CSV File: {file_name}\nRows: {len(df)}, Columns: {list(df.columns)}\n\n"
-                csv_summary += df.to_string(index=False, max_rows=100)
+                rows_repr = []
+                for _, row in df.iterrows():
+                    rows_repr.append("; ".join([f"{col}: {val}" for col, val in row.items()]))
+                csv_summary += "\n".join(rows_repr[:200])
                 pages.append(Document(
                     page_content=csv_summary,
-                    metadata={"source_file": file_name, "content_type": "spreadsheet_data", "page": 0, "page_label": 1}
+                    metadata={
+                        "source_file": file_name,
+                        "content_type": "spreadsheet_data",
+                        "page": 0,
+                        "page_label": 1,
+                        "unit_kind": "sheet",
+                        "unit_name": "sheets"
+                    }
                 ))
             else:
                 xls = pd.ExcelFile(file_path)
@@ -169,10 +311,21 @@ class DocumentService:
                 for s_idx, sheet_name in enumerate(xls.sheet_names):
                     df = pd.read_excel(xls, sheet_name=sheet_name)
                     sheet_summary = f"Sheet: {sheet_name} ({len(df)} rows, Columns: {list(df.columns)})\n\n"
-                    sheet_summary += df.to_string(index=False, max_rows=100)
+                    rows_repr = []
+                    for _, row in df.iterrows():
+                        rows_repr.append("; ".join([f"{col}: {val}" for col, val in row.items()]))
+                    sheet_summary += "\n".join(rows_repr[:200])
                     pages.append(Document(
                         page_content=sheet_summary,
-                        metadata={"source_file": file_name, "content_type": "spreadsheet_sheet", "page": s_idx, "page_label": s_idx + 1, "sheet_name": sheet_name}
+                        metadata={
+                            "source_file": file_name,
+                            "content_type": "spreadsheet_sheet",
+                            "page": s_idx,
+                            "page_label": s_idx + 1,
+                            "sheet_name": sheet_name,
+                            "unit_kind": "sheet",
+                            "unit_name": "sheets"
+                        }
                     ))
 
         # 📝 4. Text & Markdown (.txt, .md)
@@ -196,9 +349,10 @@ class DocumentService:
             chunk.page_content = re.sub(r' +', ' ', chunk.page_content).strip()
             if idx == 0 and (chunk.metadata.get("page", 0) == 0 or chunk.metadata.get("page_label", 1) == 1):
                 chunk.metadata["is_header"] = True
-                chunk.metadata["section_heading"] = "DOCUMENT_HEADER"
+                chunk.metadata.setdefault("section_heading", "DOCUMENT_HEADER")
             else:
                 chunk.metadata.setdefault("section_heading", "GENERAL")
+
 
         if not chunks:
             chunks = [Document(

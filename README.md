@@ -1,5 +1,5 @@
 ---
-title: PDF RAG & Roadmap Engine Backend
+title: Document Intelligence Platform Backend
 emoji: 📚
 colorFrom: indigo
 colorTo: green
@@ -8,7 +8,7 @@ app_port: 8000
 pinned: false
 ---
 
-# PDF RAG & Roadmap Engine
+# Document Intelligence Platform
 
 Decoupled FastAPI + React AI Application with LangChain, PyMuPDF, ChromaDB, and Vector Retrieval.
 

@@ -30,7 +30,7 @@ def run_e2e_test():
 
         print("[Playwright] Navigating to http://localhost:5173...")
         page.goto("http://localhost:5173/")
-        page.wait_for_selector("text=PDF RAG & Roadmap Summarizer")
+        page.wait_for_selector("text=Document Intelligence Platform")
         print("[Playwright] Frontend Page Loaded Successfully!")
 
         # 3. Upload File via file input

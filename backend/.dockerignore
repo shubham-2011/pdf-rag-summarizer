@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+storage/uploads/*
+storage/vector_stores/*
+storage/data/*
+!storage/uploads/.gitkeep
+!storage/vector_stores/.gitkeep
+!storage/data/.gitkeep
+.git
+.gitignore

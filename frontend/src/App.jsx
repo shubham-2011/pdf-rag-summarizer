@@ -21,7 +21,7 @@ export default function App() {
   const checkBackendHealth = async (url) => {
     setBackendStatus('checking');
     try {
-      let targetUrl = '/api/health';
+      let targetUrl = `${getApiBaseUrl()}/health`;
       if (url) {
         targetUrl = url.endsWith('/api') ? `${url}/health` : `${url.replace(/\/$/, '')}/api/health`;
       }
@@ -56,10 +56,10 @@ export default function App() {
     <div className="app-container">
       <header className="header">
         <div className="brand-badge">
-          <Layers size={14} /> Intelligent Document Platform
+          <Layers size={14} /> Offline Retrieval • Cloud Synthesis
         </div>
-        <h1>PDF RAG & Roadmap Engine</h1>
-        <p>Extract structured roadmaps, index visual diagrams, and query PDF documents with page citations.</p>
+        <h1>Document Intelligence Platform</h1>
+        <p>Extract structured roadmaps, index visual diagrams, and query documents with grounded citations across PDF, Word, PowerPoint, and Excel.</p>
 
         {/* Configurations */}
         <div className="config-bar">

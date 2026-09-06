@@ -147,7 +147,7 @@ class TestStatusTransitions:
     def test_index_path_persisted(self, meta):
         doc_id = "indexed_doc"
         _register(meta, doc_id=doc_id)
-        meta.update_status(doc_id, "INDEXED", index_path="/storage/chroma_db/indexed_doc")
+        meta.update_status(doc_id, "INDEXED", index_path="/storage/chroma_db/indexed_doc", enforce_transitions=False)
         doc = meta.get_document(doc_id)
         assert doc["index_path"] == "/storage/chroma_db/indexed_doc"
 
@@ -163,7 +163,7 @@ class TestListDocuments:
 
     def test_list_filtered_by_status(self, meta):
         _register(meta, doc_id="readyDoc", status="UPLOADED")
-        meta.update_status("readyDoc", "READY")
+        meta.update_status("readyDoc", "READY", enforce_transitions=False)
         _register(meta, doc_id="failedDoc", status="UPLOADED")
         meta.update_status("failedDoc", "FAILED")
 

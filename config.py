@@ -5,8 +5,13 @@ load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini-1.5-flash")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini-3.5-flash-lite")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+LLM_FAST_MODEL = os.getenv("LLM_FAST_MODEL", "gemini-3.5-flash-lite")
+LLM_SYNTHESIS_MODEL = os.getenv("LLM_SYNTHESIS_MODEL", "gemini-3.6-flash")
+PROMPT_PIPELINE_ENABLED = os.getenv("PROMPT_PIPELINE_ENABLED", "true").lower() in ("true", "1", "yes")
+PIPELINE_RERANK_SCORE_FLOOR = float(os.getenv("PIPELINE_RERANK_SCORE_FLOOR", "4.0"))
+PIPELINE_MAX_RETRIES = int(os.getenv("PIPELINE_MAX_RETRIES", "2"))
 
 # Local Offline Embedding & Reranker Configuration
 _raw_embed = os.getenv("EMBEDDING_MODEL", "")
@@ -16,8 +21,21 @@ DOC_EMBED_PREFIX = "search_document: "
 QUERY_EMBED_PREFIX = "search_query: "
 RERANKER_MODEL = "BAAI/bge-reranker-base"
 
+# PDF Audit Threshold Constraints
+MAX_FILE_SIZE_MB = 50
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+MAX_PAGE_COUNT = 200
+MIN_TEXT_CHARS = 20
+
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
+
+# Multi-Format Ingestion Adapter Configuration
+MULTIFORMAT_ENABLED = os.getenv("MULTIFORMAT_ENABLED", "true").lower() in ("true", "1", "yes")
+MULTIFORMAT_FORMATS = [f.strip().lower() for f in os.getenv("MULTIFORMAT_FORMATS", "docx,pptx,doc,ppt").split(",") if f.strip()]
+LIBREOFFICE_PATH = os.getenv("LIBREOFFICE_PATH", "")
+CONVERSION_TIMEOUT_SECONDS = int(os.getenv("CONVERSION_TIMEOUT_SECONDS", "120"))
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VECTOR_STORE_DIR = os.path.join(BASE_DIR, "backend", "storage", "vector_stores")
 TEMP_UPLOAD_DIR = os.path.join(BASE_DIR, "backend", "storage", "uploads")
@@ -26,4 +44,5 @@ METADATA_DB_PATH = os.path.join(BASE_DIR, "backend", "storage", "data", "registr
 os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
 os.makedirs(TEMP_UPLOAD_DIR, exist_ok=True)
 os.makedirs(os.path.dirname(METADATA_DB_PATH), exist_ok=True)
+
 

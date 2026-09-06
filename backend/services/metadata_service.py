@@ -76,7 +76,12 @@ class MetadataService:
                     status TEXT NOT NULL,
                     error_message TEXT,
                     storage_path TEXT NOT NULL,
-                    index_path TEXT
+                    index_path TEXT,
+                    unit_source TEXT,
+                    is_converted INTEGER DEFAULT 0,
+                    original_format TEXT,
+                    paragraph_count INTEGER,
+                    table_count INTEGER
                 );
 
                 CREATE TABLE IF NOT EXISTS document_identity (
@@ -130,6 +135,23 @@ class MetadataService:
                     PRIMARY KEY (workspace_id, doc_id)
                 );
             """)
+
+            # Dynamic migration for existing database files missing new columns
+            cursor = conn.execute("PRAGMA table_info(documents);")
+            existing_cols = {row["name"] for row in cursor.fetchall()}
+            for col, col_def in [
+                ("unit_source", "TEXT"),
+                ("is_converted", "INTEGER DEFAULT 0"),
+                ("original_format", "TEXT"),
+                ("paragraph_count", "INTEGER"),
+                ("table_count", "INTEGER")
+            ]:
+                if col not in existing_cols:
+                    try:
+                        conn.execute(f"ALTER TABLE documents ADD COLUMN {col} {col_def};")
+                    except Exception:
+                        pass
+
             conn.commit()
 
 
@@ -180,38 +202,82 @@ class MetadataService:
         unit_count: Optional[int],
         unit_kind: str,
         storage_path: str,
-        status: str = "UPLOADED"
+        status: str = "UPLOADED",
+        unit_source: Optional[str] = None,
+        is_converted: bool = False,
+        original_format: Optional[str] = None,
+        paragraph_count: Optional[int] = None,
+        table_count: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Registers a new document in the metadata store."""
         cls.init_db()
         
-        # Enforce rule: Formats without native pagination (DOCX, XLSX) must have NULL unit_count
         clean_ext = format_ext.lower().replace(".", "")
-        if clean_ext in ["docx", "doc"]:
-            unit_count = None
-            unit_kind = "section"
-        elif clean_ext in ["xlsx", "xls", "csv"]:
-            unit_count = None
-            unit_kind = "sheet"
+        orig_fmt = original_format or format_ext
+
+        if is_converted:
+            unit_kind = "page"
+            unit_source = unit_source or "libreoffice"
+        else:
+            # Formats without native pagination (DOCX, XLSX) must have NULL unit_count unless converted
+            if clean_ext in ["docx", "doc"]:
+                unit_count = None
+                if not unit_kind or unit_kind == "page":
+                    unit_kind = "paragraph"
+                unit_source = unit_source or "native-ast"
+            elif clean_ext in ["xlsx", "xls", "csv"]:
+                unit_count = None
+                if not unit_kind or unit_kind == "page":
+                    unit_kind = "sheet"
+                unit_source = unit_source or "native-ast"
+            elif clean_ext in ["pptx", "ppt"]:
+                if not unit_kind or unit_kind == "page":
+                    unit_kind = "slide"
+                unit_source = unit_source or "native-ast"
+            elif clean_ext == "pdf":
+                unit_kind = "page"
+                unit_source = unit_source or "native-pdf"
 
         with cls._get_connection() as conn:
             conn.execute("""
                 INSERT OR REPLACE INTO documents (
                     doc_id, content_hash, filename, format, mime_detected,
-                    size_bytes, unit_count, unit_kind, status, storage_path
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    size_bytes, unit_count, unit_kind, status, storage_path,
+                    unit_source, is_converted, original_format, paragraph_count, table_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 doc_id, content_hash, filename, format_ext, mime_type,
-                size_bytes, unit_count, unit_kind, status, storage_path
+                size_bytes, unit_count, unit_kind, status, storage_path,
+                unit_source, 1 if is_converted else 0, orig_fmt, paragraph_count, table_count
             ))
             conn.commit()
         return cls.get_document(doc_id)
 
+
+    ALLOWED_TRANSITIONS = {
+        "UPLOADED": ["PARSING", "FAILED"],
+        "PARSING": ["CHUNKING", "FAILED"],
+        "CHUNKING": ["EMBEDDING", "INDEXED", "FAILED"],
+        "EMBEDDING": ["INDEXED", "FAILED"],
+        "INDEXED": ["READY", "FAILED"],
+        "READY": ["PARSING", "UPLOADED", "FAILED"],
+        "FAILED": ["PARSING", "UPLOADED"]
+    }
+
     @classmethod
-    def update_status(cls, doc_id: str, status: str, error_message: Optional[str] = None, index_path: Optional[str] = None) -> None:
-        """Updates document ingestion lifecycle status."""
+    def update_status(cls, doc_id: str, status: str, error_message: Optional[str] = None, index_path: Optional[str] = None, enforce_transitions: bool = True) -> None:
+        """Updates document ingestion lifecycle status with state-machine validation."""
         cls.init_db()
         with cls._get_connection() as conn:
+            cursor = conn.execute("SELECT status FROM documents WHERE doc_id = ?", (doc_id,))
+            row = cursor.fetchone()
+            if row and enforce_transitions:
+                current_status = row[0]
+                if current_status != status:
+                    allowed = cls.ALLOWED_TRANSITIONS.get(current_status, [])
+                    if status not in allowed:
+                        raise ValueError(f"Illegal state transition: {current_status} -> {status}")
+
             if index_path:
                 conn.execute(
                     "UPDATE documents SET status = ?, error_message = ?, index_path = ? WHERE doc_id = ?",
@@ -223,6 +289,39 @@ class MetadataService:
                     (status, error_message, doc_id)
                 )
             conn.commit()
+
+    @classmethod
+    def delete_document(cls, doc_id: str) -> bool:
+        """Deletes a document from the SQLite registry and cleans up disk indices and storage files."""
+        cls.init_db()
+        doc = cls.get_document(doc_id)
+        if not doc:
+            return False
+
+        # 1. Clean registry tables
+        with cls._get_connection() as conn:
+            conn.execute("DELETE FROM document_identity WHERE doc_id = ?", (doc_id,))
+            conn.execute("DELETE FROM document_synopsis WHERE doc_id = ?", (doc_id,))
+            conn.execute("DELETE FROM document_outline WHERE doc_id = ?", (doc_id,))
+            conn.execute("DELETE FROM workspace_documents WHERE doc_id = ?", (doc_id,))
+            conn.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))
+            conn.commit()
+
+        # 2. Clean vector store files (FAISS, BM25, manifest)
+        vs_dir = os.path.join(config.VECTOR_STORE_DIR, doc_id)
+        if os.path.exists(vs_dir):
+            import shutil
+            shutil.rmtree(vs_dir, ignore_errors=True)
+
+        # 3. Clean storage file if present
+        storage_path = doc.get("storage_path")
+        if storage_path and os.path.exists(storage_path):
+            try:
+                os.remove(storage_path)
+            except OSError:
+                pass
+
+        return True
 
     @classmethod
     def save_identity(cls, doc_id: str, identity_card: Dict[str, Any]) -> None:
@@ -426,6 +525,7 @@ class MetadataService:
         # Check if manifest has table / image counts or unit_count
         table_count = 0
         image_count = 0
+        paragraph_count = 0
         index_path = doc.get("index_path") or os.path.join(config.VECTOR_STORE_DIR, doc_id)
         if os.path.exists(os.path.join(index_path, "index_manifest.json")):
             try:
@@ -433,8 +533,22 @@ class MetadataService:
                     manifest_data = json.load(mf)
                     table_count = manifest_data.get("table_count", 0)
                     image_count = manifest_data.get("image_count", 0)
+                    paragraph_count = manifest_data.get("paragraph_count", 0)
                     if doc.get("unit_count") is None and manifest_data.get("unit_count"):
                         doc["unit_count"] = manifest_data.get("unit_count")
+            except Exception:
+                pass
+
+        chunks_pkl = os.path.join(index_path, "chunks.pkl")
+        if os.path.exists(chunks_pkl):
+            try:
+                with open(chunks_pkl, "rb") as cpf:
+                    loaded_chunks = pickle.load(cpf)
+                if loaded_chunks and hasattr(loaded_chunks[0], "metadata"):
+                    if not paragraph_count:
+                        paragraph_count = loaded_chunks[0].metadata.get("paragraph_count", 0)
+                    if not table_count:
+                        table_count = loaded_chunks[0].metadata.get("table_count", 0)
             except Exception:
                 pass
 
@@ -445,7 +559,6 @@ class MetadataService:
 
         # Fallback for unit_count if still None on a PDF
         if unit_count is None and format_val == "pdf":
-            chunks_pkl = os.path.join(index_path, "chunks.pkl")
             if os.path.exists(chunks_pkl):
                 try:
                     with open(chunks_pkl, "rb") as cpf:
@@ -472,8 +585,13 @@ class MetadataService:
             "authors": ident.get("authors", ""),
             "doc_date": ident.get("doc_date", ""),
             "revision": ident.get("revision", ""),
-            "table_count": table_count,
+            "paragraph_count": paragraph_count or doc.get("paragraph_count", 0),
+            "table_count": table_count or doc.get("table_count", 0),
             "image_count": image_count,
             "has_tables": table_count > 0 or any("table" in s.lower() for s in sections),
-            "has_images": image_count > 0 or "drawing" in doc.get("format", "").lower()
+            "has_images": image_count > 0 or "drawing" in doc.get("format", "").lower(),
+            "unit_source": doc.get("unit_source"),
+            "is_converted": bool(doc.get("is_converted", 0)),
+            "original_format": doc.get("original_format")
         }
+

@@ -6,6 +6,10 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,8 +18,8 @@ from fastapi.staticfiles import StaticFiles
 from routers import pdf_router, chat_router
 
 app = FastAPI(
-    title="PDF RAG & Roadmap Summarizer API",
-    description="High-performance, lightweight FastAPI backend supporting PDF parsing, roadmap summarization, and RAG retrieval.",
+    title="Document Intelligence Platform API",
+    description="High-performance, lightweight FastAPI backend supporting multi-format document parsing, roadmap summarization, and RAG retrieval.",
     version="1.0.0"
 )
 
@@ -38,7 +42,7 @@ app.include_router(chat_router.router)
 def health_check():
     return {
         "status": "ok",
-        "app": "PDF RAG & Roadmap Summarizer API",
+        "app": "Document Intelligence Platform API",
         "version": "1.0.0"
     }
 

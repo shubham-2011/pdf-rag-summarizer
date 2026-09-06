@@ -22,6 +22,10 @@ class PDFService:
             return False, f"PDF file size ({size_mb} MB) exceeds maximum allowed limit of {config.MAX_FILE_SIZE_MB} MB."
             
         try:
+            with open(pdf_path, "rb") as f:
+                header = f.read(10)
+            if not header.startswith(b"%PDF"):
+                return False, "Corrupted or invalid PDF structure: Missing %PDF file header."
             reader = PdfReader(pdf_path)
             doc_fitz = fitz.open(pdf_path)
         except Exception as e:
@@ -45,8 +49,8 @@ class PDFService:
             if i < len(doc_fitz):
                 total_images += len(doc_fitz[i].get_images())
 
-        if len(total_extracted_text) < config.MIN_TEXT_CHARS and total_images == 0:
-            return False, "PDF contains no extractable text or embedded images/scans."
+        if len(total_extracted_text) < config.MIN_TEXT_CHARS:
+            return False, "PDF contains no extractable text. It appears to be a scanned image-only document; OCR is not supported yet."
             
         return True, "PDF audit passed successfully."
 

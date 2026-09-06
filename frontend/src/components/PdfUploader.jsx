@@ -12,8 +12,10 @@ export default function PdfUploader({ apiKey, onPdfUploaded }) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setError('PDF Cannot Be Embedded: Only PDF documents (.pdf) are supported.');
+    const allowedExtensions = ['.pdf', '.docx', '.doc', '.pptx', '.ppt'];
+    const hasValidExt = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+    if (!hasValidExt) {
+      setError('Document Cannot Be Embedded: Only PDF, Word (.docx, .doc), and PowerPoint (.pptx, .ppt) documents are supported.');
       return;
     }
 
@@ -21,7 +23,7 @@ export default function PdfUploader({ apiKey, onPdfUploaded }) {
     const maxSizeBytes = 50 * 1024 * 1024;
     if (file.size > maxSizeBytes) {
       const fileSizeMb = (file.size / (1024 * 1024)).toFixed(2);
-      setError(`PDF Cannot Be Embedded: File size (${fileSizeMb} MB) exceeds maximum allowed limit of 50 MB.`);
+      setError(`Document Cannot Be Embedded: File size (${fileSizeMb} MB) exceeds maximum allowed limit of 50 MB.`);
       return;
     }
 
@@ -58,7 +60,7 @@ export default function PdfUploader({ apiKey, onPdfUploaded }) {
         <input 
           ref={fileInputRef}
           type="file" 
-          accept=".pdf,application/pdf,application/x-pdf" 
+          accept=".pdf,.docx,.doc,.pptx,.ppt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation" 
           onChange={handleFileChange} 
           id="pdf-input" 
           style={{ display: 'none' }} 
@@ -66,14 +68,14 @@ export default function PdfUploader({ apiKey, onPdfUploaded }) {
         {loading ? (
           <div>
             <Loader className="animate-spin" size={44} style={{ color: '#6366f1', margin: '0 auto 1rem' }} />
-            <h3 style={{ fontSize: '1.1rem' }}>Auditing & Embedding PDF Document...</h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Validating text extractability and indexing into Chroma Vector DB...</p>
+            <h3 style={{ fontSize: '1.1rem' }}>Auditing & Embedding Document...</h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Validating text extractability and indexing into Vector Store...</p>
           </div>
         ) : (
           <div>
             <Upload size={44} style={{ color: '#6366f1', margin: '0 auto 1rem' }} />
-            <h3 style={{ fontSize: '1.1rem' }}>Tap here or Drag & Drop PDF to Audit & Embed</h3>
-            <p style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.85rem' }}>Max file size: 50 MB • Max pages: 200 • Text PDFs supported</p>
+            <h3 style={{ fontSize: '1.1rem' }}>Tap here or Drag & Drop PDF, Word, or PPT to Audit & Embed</h3>
+            <p style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.85rem' }}>Max file size: 50 MB • Formats: PDF, DOCX, PPTX</p>
           </div>
         )}
       </div>
@@ -93,7 +95,7 @@ export default function PdfUploader({ apiKey, onPdfUploaded }) {
           <AlertOctagon size={24} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} />
           <div style={{ width: '100%' }}>
             <strong style={{ color: '#fca5a5', display: 'block', fontSize: '1rem', marginBottom: '0.25rem' }}>
-              ⚠️ THIS PDF CANNOT BE EMBEDDED
+              ⚠️ THIS DOCUMENT CANNOT BE EMBEDDED
             </strong>
             <span style={{ color: '#f8fafc', fontSize: '0.92rem', lineHeight: '1.5' }}>
               {error}
@@ -124,7 +126,15 @@ export default function PdfUploader({ apiKey, onPdfUploaded }) {
             <div>
               <strong style={{ color: '#f8fafc', fontSize: '0.95rem' }}>{fileInfo.filename}</strong>
               <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                {fileInfo.total_pages} Pages • {fileInfo.total_chunks} Vector Chunks (Audit Passed)
+                {fileInfo.format === 'docx' || fileInfo.filename?.toLowerCase().endsWith('.docx') || fileInfo.filename?.toLowerCase().endsWith('.doc') ? (
+                  `${fileInfo.details || 'Word Document'} • ${fileInfo.total_chunks} Vector Chunks (Audit Passed)`
+                ) : fileInfo.format === 'pptx' || fileInfo.filename?.toLowerCase().endsWith('.pptx') || fileInfo.filename?.toLowerCase().endsWith('.ppt') ? (
+                  `${fileInfo.details || `${fileInfo.unit_count || 1} Slides`} • ${fileInfo.total_chunks} Vector Chunks (Audit Passed)`
+                ) : fileInfo.format === 'xlsx' || fileInfo.filename?.toLowerCase().endsWith('.xlsx') || fileInfo.filename?.toLowerCase().endsWith('.csv') ? (
+                  `${fileInfo.details || `${fileInfo.unit_count || 1} Sheets`} • ${fileInfo.total_chunks} Vector Chunks (Audit Passed)`
+                ) : (
+                  `${fileInfo.total_pages || fileInfo.unit_count || 1} Pages • ${fileInfo.total_chunks} Vector Chunks (Audit Passed)`
+                )}
               </div>
             </div>
           </div>

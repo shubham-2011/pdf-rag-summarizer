@@ -1,5 +1,8 @@
 import axios from 'axios';
 
+// Ensure bypass-tunnel-reminder header is attached for tunnel proxy compatibility
+axios.defaults.headers.common['bypass-tunnel-reminder'] = 'true';
+
 // Active high-speed Cloudflare Tunnel backend endpoint (Zero 502/503 errors)
 const DEFAULT_CLOUD_BACKEND = 'https://ice-occasions-profession-joe.trycloudflare.com/api';
 
@@ -10,6 +13,14 @@ export const getApiBaseUrl = () => {
   const customBackend = localStorage.getItem('custom_backend_url');
   if (customBackend) {
     return customBackend.endsWith('/api') ? customBackend : `${customBackend.replace(/\/$/, '')}/api`;
+  }
+  if (typeof window !== 'undefined') {
+    if (window.location.port === '8000') {
+      return '/api';
+    }
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:8000/api';
+    }
   }
   return DEFAULT_CLOUD_BACKEND;
 };

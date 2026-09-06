@@ -121,7 +121,10 @@ class VectorService:
         embedding_dims: int = _CURRENT_EMBEDDING_DIMS,
         embedding_model: str = _CURRENT_EMBEDDING_MODEL,
         document_prefix: str = _CURRENT_DOC_PREFIX,
-        query_prefix: str = _CURRENT_QUERY_PREFIX
+        query_prefix: str = _CURRENT_QUERY_PREFIX,
+        unit_source: Optional[str] = None,
+        is_converted: bool = False,
+        original_format: Optional[str] = None
     ) -> Dict[str, Any]:
         """Saves index_manifest.json sidecar into the collection directory."""
         collection_dir = os.path.join(config.VECTOR_STORE_DIR, collection_name)
@@ -134,6 +137,9 @@ class VectorService:
             "format": format_ext,
             "unit_count": unit_count,
             "unit_kind": unit_kind,
+            "unit_source": unit_source or ("native-pdf" if format_ext == "pdf" else ("libreoffice" if is_converted else "native-ast")),
+            "is_converted": is_converted,
+            "original_format": original_format or format_ext,
             "embedding_model": embedding_model,
             "embedding_dims": embedding_dims,
             "document_prefix": document_prefix,
@@ -199,7 +205,10 @@ class VectorService:
         unit_count: Optional[int] = None,
         unit_kind: str = "page",
         filename: Optional[str] = None,
-        format_ext: str = "pdf"
+        format_ext: str = "pdf",
+        unit_source: Optional[str] = None,
+        is_converted: bool = False,
+        original_format: Optional[str] = None
     ) -> FAISS:
         """
         Creates and persists a FAISS vector index alongside BM25 index and index_manifest.json sidecar.
@@ -219,7 +228,10 @@ class VectorService:
             if "page_label" not in doc.metadata and "page" in doc.metadata:
                 doc.metadata["page_label"] = doc.metadata["page"] + 1
 
-        if unit_count is None and chunks:
+        clean_fmt = format_ext.lower().lstrip(".")
+        if clean_fmt in ["docx", "doc"] and not is_converted:
+            unit_count = None
+        elif unit_count is None and chunks and (clean_fmt == "pdf" or is_converted):
             pages = [c.metadata.get("page_label", c.metadata.get("page", 0) + 1) for c in chunks if c.metadata.get("page_label") or c.metadata.get("page") is not None]
             unit_count = max(pages) if pages else len(chunks)
 
@@ -234,6 +246,7 @@ class VectorService:
 
         # Save sidecar chunks for BM25 retrieval
         chunks_pkl_path = os.path.join(collection_dir, "chunks.pkl")
+
         try:
             with open(chunks_pkl_path, "wb") as f:
                 pickle.dump(chunks, f)
@@ -255,10 +268,14 @@ class VectorService:
             unit_count=unit_count,
             unit_kind=unit_kind,
             filename=filename,
-            format_ext=format_ext
+            format_ext=format_ext,
+            unit_source=unit_source,
+            is_converted=is_converted,
+            original_format=original_format
         )
 
         return vector_store
+
 
     @classmethod
     def get_collection(cls, collection_name: str, api_key: str = None) -> Optional[FAISS]:
@@ -367,6 +384,13 @@ class VectorService:
                 return unique_docs[:self.k]
 
         return CompositeRetriever(vector_store, bm25, k, rerank)
+
+    @classmethod
+    def hybrid_search(cls, collection_name: str, query: str, top_k: int = 5, chunks: Optional[List[Document]] = None) -> List[Document]:
+        """Performs hybrid reciprocal rank fusion search across FAISS dense vector and BM25 sparse keyword indices."""
+        retriever = cls.build_retriever(collection_name, chunks=chunks, k=top_k, rerank=False)
+        return retriever.invoke(query)
+
 
     @classmethod
     def deduplicate_chunks(cls, documents: List[Document], threshold: float = 0.85) -> List[Document]:

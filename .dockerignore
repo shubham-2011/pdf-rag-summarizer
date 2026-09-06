@@ -1,0 +1,13 @@
+backend/venv/
+backend/__pycache__/
+backend/storage/uploads/*
+backend/storage/vector_stores/*
+backend/storage/data/*
+frontend/node_modules/
+frontend/dist/
+.git
+.gitignore
+.pytest_cache/
+tests/__pycache__/
+audit/__pycache__/
+*.pyc

@@ -51,7 +51,7 @@ def run_interactive_browser_test():
         # Step 1: Open app
         print("[BrowserTest] Navigating to http://localhost:5173...")
         page.goto("http://localhost:5173/")
-        page.wait_for_selector("text=PDF RAG & Roadmap Summarizer")
+        page.wait_for_selector("text=Document Intelligence Platform")
         print("[BrowserTest] Web App Header Loaded!")
 
         # Step 2: Upload PDF
