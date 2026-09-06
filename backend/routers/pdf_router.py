@@ -48,7 +48,55 @@ async def upload_pdf(
         
         # Multimodal Text + Image Caption Processing
         chunks, total_pages = PDFService.process_pdf(temp_path, api_key=key)
-        VectorService.create_collection(chunks, collection_name=doc_id, api_key=key)
+        VectorService.create_collection(
+            chunks,
+            collection_name=doc_id,
+            api_key=key,
+            unit_count=total_pages,
+            unit_kind="page",
+            filename=file.filename,
+            format_ext="pdf"
+        )
+        
+        # Register in Authoritative Metadata Registry (SQLite)
+        from services.metadata_service import MetadataService
+        from services.document_service import DocumentService
+
+        with open(temp_path, "rb") as pf:
+            content_hash = MetadataService.calculate_file_hash(pf.read())
+
+        MetadataService.register_document(
+            doc_id=doc_id,
+            content_hash=content_hash,
+            filename=file.filename,
+            format_ext="pdf",
+            mime_type="application/pdf",
+            size_bytes=file_size,
+            unit_count=total_pages,
+            unit_kind="page",
+            storage_path=temp_path,
+            status="READY"
+        )
+
+        collection_dir = os.path.join(config.VECTOR_STORE_DIR, doc_id)
+        MetadataService.update_status(doc_id, "READY", index_path=collection_dir)
+
+        # Generate and save Document Identity Card and Outlines
+        identity_card = DocumentService.generate_identity_card(chunks, file.filename, total_pages, ext=".pdf", api_key=key)
+        MetadataService.save_identity(doc_id, identity_card)
+
+        outline_entries = []
+        for idx, heading in enumerate(identity_card.get("structure_outline", [])):
+            outline_entries.append({
+                "locator_kind": "page",
+                "locator_index": 1,
+                "locator_label": "1",
+                "heading": heading,
+                "level": 1,
+                "char_count": 100
+            })
+        if outline_entries:
+            MetadataService.save_outline(doc_id, outline_entries)
         
         document_cache[doc_id] = {
             "filename": file.filename,

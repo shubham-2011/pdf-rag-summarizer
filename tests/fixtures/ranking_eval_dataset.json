@@ -1,0 +1,80 @@
+[
+  {
+    "query": "what is the power and thermal specification",
+    "doc_id": "eval_technical_manual_long",
+    "relevant_chunk_ids": ["c1"],
+    "must_not_return": []
+  },
+  {
+    "query": "sensor interfacing and analog inputs",
+    "doc_id": "eval_technical_manual_long",
+    "relevant_chunk_ids": ["c3"],
+    "must_not_return": []
+  },
+  {
+    "query": "edge computing unit and hardware",
+    "doc_id": "eval_technical_manual_long",
+    "relevant_chunk_ids": ["c2"],
+    "must_not_return": []
+  },
+  {
+    "query": "which model achieved the highest predictive accuracy for WQI",
+    "doc_id": "eval_water_quality_report",
+    "relevant_chunk_ids": ["c1", "c2"],
+    "must_not_return": []
+  },
+  {
+    "query": "what are the remediation recommendations and policy action items",
+    "doc_id": "eval_water_quality_report",
+    "relevant_chunk_ids": ["c3"],
+    "must_not_return": []
+  },
+  {
+    "query": "WQI assessment using machine learning algorithms",
+    "doc_id": "eval_water_quality_report",
+    "relevant_chunk_ids": ["c0", "c1"],
+    "must_not_return": []
+  },
+  {
+    "query": "what is the transformer rating and substation layout",
+    "doc_id": "eval_electrical_layout_drawing",
+    "relevant_chunk_ids": ["c0", "c1"],
+    "must_not_return": []
+  },
+  {
+    "query": "grid-tied inverter with net metering and effluent treatment plant",
+    "doc_id": "eval_electrical_layout_drawing",
+    "relevant_chunk_ids": ["c2"],
+    "must_not_return": []
+  },
+  {
+    "query": "cabling specifications and underground 11kV grade XLPE",
+    "doc_id": "eval_electrical_layout_drawing",
+    "relevant_chunk_ids": ["c3"],
+    "must_not_return": []
+  },
+  {
+    "query": "what programming languages and backend frameworks does the candidate know",
+    "doc_id": "757636a1",
+    "relevant_chunk_ids": ["c1"],
+    "must_not_return": ["c0"]
+  },
+  {
+    "query": "tell me about the product management system project and technology stack",
+    "doc_id": "757636a1",
+    "relevant_chunk_ids": ["c3"],
+    "must_not_return": ["c0"]
+  },
+  {
+    "query": "what internships and work experience are mentioned",
+    "doc_id": "757636a1",
+    "relevant_chunk_ids": ["c1", "c2"],
+    "must_not_return": ["c0"]
+  },
+  {
+    "query": "freelance frontend developer project for APK Elite Services",
+    "doc_id": "757636a1",
+    "relevant_chunk_ids": ["c4", "c5", "c6"],
+    "must_not_return": ["c0"]
+  }
+]

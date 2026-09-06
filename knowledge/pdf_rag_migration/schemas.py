@@ -27,16 +27,14 @@ class ChatQueryRequest(BaseModel):
     chat_history: Optional[List[Dict[str, str]]] = Field(None, description="Past chat conversation history")
 
 class SourceCitation(BaseModel):
-    page: Any
-    file: str
-    section: Optional[str] = None
-    snippet: str
+    id: Optional[str] = None
+    page: Any = "1"
+    file: Optional[str] = "Document"
+    text: Optional[str] = None
+    snippet: Optional[str] = None
+    origin: Optional[str] = "pdf"
     url: Optional[str] = None
 
 class ChatQueryResponse(BaseModel):
     answer: str
     sources: List[SourceCitation]
-    served_by: Optional[str] = "unknown"
-    finish_reason: Optional[str] = "stop"
-    latency_ms: Optional[float] = 0.0
-

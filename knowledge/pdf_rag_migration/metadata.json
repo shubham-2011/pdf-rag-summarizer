@@ -1,0 +1,19 @@
+{
+  "title": "Document Intelligence Engine — RAG Synthesis & Multi-Format Architecture",
+  "description": "Enterprise multi-format document intelligence platform overhaul. Includes intent routing (GLOBAL vs LOCAL vs TABULAR), FAISS + BM25 ensemble retriever with BAAI/bge-reranker-base, asymmetric Nomic embeddings, locator abstractions across PDF/DOCX/PPTX/XLSX, and full error resolution logs.",
+  "updated_at": "2026-09-06T08:31:00Z",
+  "artifacts": [
+    "design_query_understanding_and_document_awareness.md",
+    "design_plan_document_intelligence_engine.md",
+    "error_log_and_solution.md",
+    "implementation_plan.md",
+    "walkthrough.md",
+    "vector_service.py",
+    "rag_service.py",
+    "document_service.py",
+    "schemas.py",
+    "tests/diagnose_stage.py",
+    "tests/test_rag_overhaul.py",
+    "tests/test_multiformat_documents.py"
+  ]
+}
