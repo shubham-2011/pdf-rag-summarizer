@@ -3,8 +3,8 @@ import axios from 'axios';
 // Ensure bypass-tunnel-reminder header is attached for tunnel proxy compatibility
 axios.defaults.headers.common['bypass-tunnel-reminder'] = 'true';
 
-// Active high-speed Cloudflare Tunnel backend endpoint (Zero 502/503 errors)
-const DEFAULT_CLOUD_BACKEND = 'https://ice-occasions-profession-joe.trycloudflare.com/api';
+// Active AWS EC2 Caddy HTTPS Backend Endpoint
+const DEFAULT_CLOUD_BACKEND = 'https://3-18-112-83.sslip.io/api';
 
 export const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) {

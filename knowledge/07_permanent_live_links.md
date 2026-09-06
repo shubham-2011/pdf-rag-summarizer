@@ -7,8 +7,9 @@
 ---
 
 ## 2. Active Backend Server Tunnels & Endpoints
-- **Local Machine Tunnel**: `https://eighty-feet-unite.loca.lt` (Active while laptop is ON, Verification IP: `45.250.227.158`).
-- **24/7 Cloud Backend**: Deployable via `render.yaml` or `railway.json` blueprint.
+- **AWS Production Server**: `https://3-18-112-83.sslip.io` (Active 24/7 AWS EC2 + Caddy Auto-SSL).
+- **Health Check**: `https://3-18-112-83.sslip.io/api/health`
+- **Swagger Docs**: `https://3-18-112-83.sslip.io/docs`
 
 ---
 
