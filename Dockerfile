@@ -16,9 +16,10 @@ ENV PYTHONIOENCODING=utf-8
 COPY backend/requirements.txt ./backend/
 RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r ./backend/requirements.txt
 
-# Pre-download primary offline embedding models (reranker loads at runtime)
+# Pre-download open-source models into container image (sequentially to conserve RAM)
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')" && \
-    python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('nomic-ai/nomic-embed-text-v1.5', trust_remote_code=True)"
+    python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('nomic-ai/nomic-embed-text-v1.5', trust_remote_code=True)" && \
+    python -c "from sentence_transformers import CrossEncoder; CrossEncoder('BAAI/bge-reranker-base')"
 
 COPY backend/ ./backend/
 
