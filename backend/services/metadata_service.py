@@ -337,9 +337,9 @@ class MetadataService:
             """, (
                 doc_id,
                 identity_card.get("title", ""),
-                identity_card.get("doc_type", "document"),
+                identity_card.get("doc_type") or identity_card.get("document_type") or "document",
                 identity_card.get("domain", ""),
-                identity_card.get("purpose", ""),
+                identity_card.get("purpose") or identity_card.get("one_line_purpose") or "",
                 json.dumps(identity_card.get("key_entities", [])),
                 identity_card.get("authors", ""),
                 identity_card.get("doc_date", ""),
@@ -359,6 +359,14 @@ class MetadataService:
             if not row:
                 return None
             res = dict(row)
+            if res.get("purpose"):
+                res["one_line_purpose"] = res["purpose"]
+            elif res.get("one_line_purpose"):
+                res["purpose"] = res["one_line_purpose"]
+            if res.get("doc_type"):
+                res["document_type"] = res["doc_type"]
+            elif res.get("document_type"):
+                res["doc_type"] = res["document_type"]
             if res.get("key_entities"):
                 try:
                     res["key_entities"] = json.loads(res["key_entities"])

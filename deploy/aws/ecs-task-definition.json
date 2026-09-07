@@ -23,8 +23,9 @@
         { "name": "PYTHONIOENCODING", "value": "utf-8" },
         { "name": "DEFAULT_MODEL", "value": "gemini-3.5-flash-lite" },
         { "name": "GEMINI_MODEL", "value": "gemini-3.5-flash-lite" },
-        { "name": "LLM_SYNTHESIS_MODEL", "value": "gemini-3.6-flash" },
-        { "name": "PROMPT_PIPELINE_ENABLED", "value": "true" },
+        { "name": "LLM_FAST_MODEL", "value": "gemini-3.5-flash-lite" },
+        { "name": "LLM_SYNTHESIS_MODEL", "value": "gemini-3.5-flash-lite" },
+        { "name": "PROMPT_PIPELINE_ENABLED", "value": "false" },
         { "name": "CANONICAL_RENDERER", "value": "libreoffice" }
       ],
       "secrets": [

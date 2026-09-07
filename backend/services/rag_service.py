@@ -192,10 +192,10 @@ class RAGService:
                     "llm_calls": 0,
                     "rerank_calls": 0
                 })
-            elif ident_rec.get("purpose"):
+            elif ident_rec.get("purpose") or ident_rec.get("one_line_purpose"):
                 title = ident_rec.get("title", "this document")
-                doc_type = ident_rec.get("doc_type", "document")
-                purpose = ident_rec.get("purpose", "")
+                doc_type = ident_rec.get("doc_type") or ident_rec.get("document_type") or "document"
+                purpose = ident_rec.get("purpose") or ident_rec.get("one_line_purpose", "")
                 domain = ident_rec.get("domain", "technical")
                 ans = (
                     f"This document is a {doc_type} titled **{title}** within the {domain} domain. "
@@ -308,6 +308,19 @@ class RAGService:
         except RetrievalSanityError as e:
             print(f"[RAGService] V2 Gate Warning: {e}")
 
+        # For GLOBAL/macro intent, ensure introduction/abstract chunks are included
+        if intent == "GLOBAL":
+            for doc_id in target_ids:
+                vector_store = VectorService.get_collection(doc_id)
+                if vector_store:
+                    try:
+                        intro_docs = vector_store.similarity_search("document introduction abstract overview purpose title", k=2)
+                        for idoc in intro_docs:
+                            if not any(d.page_content == idoc.page_content for d in all_docs):
+                                all_docs.insert(0, idoc)
+                    except Exception:
+                        pass
+
         # Deduplicate candidate chunks (R4)
         unique_candidates = VectorService.deduplicate_chunks(all_docs, threshold=0.85)
 
@@ -326,7 +339,7 @@ class RAGService:
         # Resolve active LLM model
         models_to_try = [
             "gemini-3.5-flash-lite",
-            "gemini-3.6-flash",
+            "gemini-2.5-flash",
             getattr(config, "GEMINI_MODEL", "gemini-3.5-flash-lite")
         ]
         if model_name:
@@ -352,58 +365,63 @@ class RAGService:
                 api_key=api_key,
                 max_retries=getattr(config, "PIPELINE_MAX_RETRIES", 2)
             )
+            pipe_verdict = pipe_res.get("verdict", "COMPLETED")
             ans = pipe_res.get("answer", "")
             top_docs = pipe_res.get("top_docs", [])
             pipe_telemetry = pipe_res.get("telemetry", {})
 
-            pipe_sources = []
-            for idx, d in enumerate(top_docs, start=1):
-                p_page = d.metadata.get("page_label", d.metadata.get("page", 1))
-                p_file = d.metadata.get("source_file", "Document")
-                p_sec = d.metadata.get("section_heading", "GENERAL")
-                p_snip = d.page_content[:180].replace("\n", " ") + "..."
-                pipe_sources.append({
-                    "id": idx,
-                    "page": p_page,
-                    "file": p_file,
-                    "section": p_sec,
-                    "snippet": p_snip
-                })
-            if web_sources:
-                pipe_sources.extend(web_sources)
+            # Only terminate if pipeline passed or produced an answer; on refusal fallback, fall through to ladder
+            if pipe_verdict in ["PASS", "FAIL_GROUNDED_FALLBACK"] or (ans and ans != PromptPipelineService.REFUSAL_STRING):
+                pipe_sources = []
+                for idx, d in enumerate(top_docs, start=1):
+                    p_page = d.metadata.get("page_label", d.metadata.get("page", 1))
+                    p_file = d.metadata.get("source_file", "Document")
+                    p_sec = d.metadata.get("section_heading", "GENERAL")
+                    p_snip = d.page_content[:180].replace("\n", " ") + "..."
+                    pipe_sources.append({
+                        "id": idx,
+                        "page": p_page,
+                        "file": p_file,
+                        "section": p_sec,
+                        "snippet": p_snip
+                    })
+                if web_sources:
+                    pipe_sources.extend(web_sources)
 
-            sanitized_sources = ValidationService.validate_citations(
-                pipe_sources, unit_count=unit_count, retrieved_docs=top_docs
-            )
+                sanitized_sources = ValidationService.validate_citations(
+                    pipe_sources, unit_count=unit_count, retrieved_docs=top_docs
+                )
 
-            elapsed_ms = (time.time() - start_time) * 1000.0
-            return ValidationService.enforce_response_contract({
-                "answer": ans,
-                "sources": sanitized_sources,
-                "intent": intent,
-                "served_by": f"prompt_pipeline ({pipe_res.get('verdict', 'COMPLETED')})",
-                "strategy": "5_prompt_rag_pipeline",
-                "finish_reason": "stop",
-                "latency_ms": elapsed_ms,
-                "telemetry": {
+                elapsed_ms = (time.time() - start_time) * 1000.0
+                return ValidationService.enforce_response_contract({
+                    "answer": ans,
+                    "sources": sanitized_sources,
                     "intent": intent,
-                    "confidence": details.get("confidence", 1.0),
-                    "retrieval_calls": len(queries_to_search),
-                    "llm_calls": pipe_telemetry.get("llm_calls", 1),
-                    "rerank_calls": pipe_telemetry.get("rerank_calls", 1),
-                    "candidates_retrieved": len(all_docs),
-                    "after_dedupe": len(unique_candidates),
-                    "after_rerank": len(top_docs),
-                    "top_score": top_docs[0].metadata.get("pipeline_relevance_score", 0.0) if top_docs else 0.0,
-                    "min_kept_score": top_docs[-1].metadata.get("pipeline_relevance_score", 0.0) if top_docs else 0.0,
-                    "attempts": pipe_telemetry.get("attempts", 1),
-                    "validation_failures": [v for v in pipe_telemetry.get("validation_history", []) if v.get("verdict") == "FAIL"],
-                    "violations_by_criterion": pipe_telemetry.get("violations_by_criterion", {}),
-                    "served_by": "prompt_pipeline",
+                    "served_by": f"prompt_pipeline ({pipe_verdict})",
+                    "strategy": "5_prompt_rag_pipeline",
                     "finish_reason": "stop",
-                    "latency_ms": elapsed_ms
-                }
-            })
+                    "latency_ms": elapsed_ms,
+                    "telemetry": {
+                        "intent": intent,
+                        "confidence": details.get("confidence", 1.0),
+                        "retrieval_calls": len(queries_to_search),
+                        "llm_calls": pipe_telemetry.get("llm_calls", 1),
+                        "rerank_calls": pipe_telemetry.get("rerank_calls", 1),
+                        "candidates_retrieved": len(all_docs),
+                        "after_dedupe": len(unique_candidates),
+                        "after_rerank": len(top_docs),
+                        "top_score": top_docs[0].metadata.get("pipeline_relevance_score", 0.0) if top_docs else 0.0,
+                        "min_kept_score": top_docs[-1].metadata.get("pipeline_relevance_score", 0.0) if top_docs else 0.0,
+                        "attempts": pipe_telemetry.get("attempts", 1),
+                        "validation_failures": [v for v in pipe_telemetry.get("validation_history", []) if v.get("verdict") == "FAIL"],
+                        "violations_by_criterion": pipe_telemetry.get("violations_by_criterion", {}),
+                        "served_by": "prompt_pipeline",
+                        "finish_reason": "stop",
+                        "latency_ms": elapsed_ms
+                    }
+                })
+            else:
+                print(f"[RAGService] Prompt pipeline returned {pipe_verdict}. Falling through to synthesis ladder.")
 
         # 🎯 Step 4 (Fallback): Local Cross-Encoder Reranking (R7 Boost + R8 Demotion)
         if unique_candidates:
@@ -549,6 +567,18 @@ class RAGService:
 
                     if raw_answer and raw_answer.strip():
                         ans = raw_answer.strip()
+                        # Auto-clean conversational scaffolding prefixes
+                        for scaf_pat in [
+                            r'^(based on\s+(\[page|\bthe\b|context))\s*[,:]?\s*',
+                            r'^(according to\s+(\[page|\bthe\b|context))\s*[,:]?\s*',
+                            r'^(from the (provided|retrieved)\s+(context|document))\s*[,:]?\s*',
+                            r'^(as stated in\s+(\[page|\bthe\b|context))\s*[,:]?\s*',
+                            r'^(as mentioned in\s+(\[page|\bthe\b|context))\s*[,:]?\s*',
+                        ]:
+                            ans = re.sub(scaf_pat, '', ans, flags=re.IGNORECASE).strip()
+                        if ans and ans[0].islower():
+                            ans = ans[0].upper() + ans[1:]
+
                         last_failed_answer = ans
                         
                         # Mechanical validation gate

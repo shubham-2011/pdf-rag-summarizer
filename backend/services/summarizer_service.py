@@ -3,6 +3,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
+from services.llm_service import LLMService
 import config
 
 class SummarizerService:
@@ -19,11 +20,11 @@ class SummarizerService:
         # Fallback to all chunks if document contains only images
         chunks_to_summarize = text_chunks if text_chunks else chunks
         
-        if key and key != "your_openai_api_key_here":
+        # Attempt LLM synthesis (Gemini or OpenAI)
+        llm = LLMService.get_synthesis_model(api_key=api_key, temperature=0.0) or LLMService.get_chat_model(api_key=api_key, model_name=model_name, temperature=0.0)
+        
+        if llm:
             try:
-                # Temperature set strictly to 0.0 for deterministic factual summaries
-                llm = ChatOpenAI(temperature=0.0, model=model, openai_api_key=key)
-                
                 map_prompt = ChatPromptTemplate.from_messages([
                     ("system", "Summarize the key points of the following document section concisely:"),
                     ("human", "{text}")
@@ -31,14 +32,14 @@ class SummarizerService:
                 map_chain = map_prompt | llm | StrOutputParser()
                 
                 chunk_summaries = []
-                for chunk in chunks_to_summarize[:15]:
+                for chunk in chunks_to_summarize[:12]:
                     summary = map_chain.invoke({"text": chunk.page_content})
-                    chunk_summaries.append(summary)
+                    chunk_summaries.append(str(summary).strip())
                     
                 combined_summaries = "\n\n".join(chunk_summaries)
                 
                 reduce_prompt = ChatPromptTemplate.from_messages([
-                    ("system", "You are an expert AI educator and technical analyst."),
+                    ("system", "You are an expert technical analyst and executive briefing specialist."),
                     ("human", (
                         "Based on the following document section summaries:\n\n"
                         "{text}\n\n"
@@ -52,7 +53,8 @@ class SummarizerService:
                 reduce_chain = reduce_prompt | llm | StrOutputParser()
                 return reduce_chain.invoke({"text": combined_summaries})
             except Exception as e:
-                print(f"[SummarizerService] OpenAI error: {e}. Using extractive fallback.")
+                print(f"[SummarizerService] LLM synthesis error: {e}. Using extractive fallback.")
+
 
         # Zero-Config Extractive Summary Fallback (Uses text chunks only)
         doc_text_snippets = [c.page_content[:250].strip() for c in chunks_to_summarize[:6]]

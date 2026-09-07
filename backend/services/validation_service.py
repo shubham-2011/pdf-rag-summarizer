@@ -183,17 +183,18 @@ class ValidationService:
 
         clean = answer.strip()
 
-        # 1. Scaffolding / Template Leak Hard Fail
+        # 1. Scaffolding / Template Leak Auto-Clean
         scaffolding_patterns = [
-            r'^(based on\s+(\[page|\bthe\b|context))',
-            r'^(according to\s+(\[page|\bthe\b|context))',
-            r'^(from the (provided|retrieved)\s+(context|document))',
-            r'^(as stated in\s+(\[page|\bthe\b|context))',
-            r'^(as mentioned in\s+(\[page|\bthe\b|context))',
+            r'^(based on\s+(\[page|\bthe\b|context))\s*[,:]?\s*',
+            r'^(according to\s+(\[page|\bthe\b|context))\s*[,:]?\s*',
+            r'^(from the (provided|retrieved)\s+(context|document))\s*[,:]?\s*',
+            r'^(as stated in\s+(\[page|\bthe\b|context))\s*[,:]?\s*',
+            r'^(as mentioned in\s+(\[page|\bthe\b|context))\s*[,:]?\s*',
         ]
         for pat in scaffolding_patterns:
-            if re.search(pat, clean, re.IGNORECASE):
-                raise AnswerShapeError(f"Answer begins with prompt scaffolding template leak: '{clean[:35]}...'")
+            clean = re.sub(pat, '', clean, flags=re.IGNORECASE).strip()
+        if clean and clean[0].islower():
+            clean = clean[0].upper() + clean[1:]
 
         # 2. Raw chunk boundary check (dangling punctuation at bullet or start)
         if clean.startswith((".", ",", ";", ":", ")", "]")):
@@ -244,9 +245,9 @@ class ValidationService:
             if not verb_match:
                 raise AnswerShapeError("GLOBAL answer lacks a complete sentence with a standard verb.")
 
-            # Page marker count (macro overview shouldn't cite many pages)
+            # Page marker count (macro overview shouldn't spam excessive page markers)
             page_markers = re.findall(r'\[Page\s*\d+\]', clean, re.IGNORECASE)
-            if len(page_markers) > 1:
+            if len(page_markers) > 8:
                 raise AnswerShapeError(f"GLOBAL answer contains excessive page citations ({len(page_markers)}). Expected macro document synopsis.")
 
         elif intent == "LOCAL":

@@ -36,31 +36,29 @@ class LLMService:
         # Route 1: Google Gemini (Valid Google AI Studio keys start with 'AIza' or 'AQ.')
         if gemini_key and (gemini_key.startswith("AIza") or gemini_key.startswith("AQ.")):
             chosen_model = model_name if (model_name and "gemini" in model_name.lower()) else getattr(config, "GEMINI_MODEL", "gemini-3.5-flash-lite")
-            if chosen_model in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-flash-latest"]:
+            if chosen_model in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"]:
                 chosen_model = "gemini-3.5-flash-lite"
             try:
                 return ChatGoogleGenerativeAI(
                     model=chosen_model,
                     google_api_key=gemini_key,
                     temperature=temperature,
-                    timeout=20,
-                    max_retries=2
+                    timeout=25,
+                    max_retries=3
                 )
             except Exception as e:
                 print(f"[LLMService] Gemini model initialization error with {chosen_model}: {e}")
-                # Fallback to 3.6-flash
+                # Fallback to gemini-3.5-flash-lite
                 try:
                     return ChatGoogleGenerativeAI(
-                        model="gemini-3.6-flash",
+                        model="gemini-3.5-flash-lite",
                         google_api_key=gemini_key,
                         temperature=temperature,
-                        timeout=20,
-                        max_retries=2
+                        timeout=25,
+                        max_retries=3
                     )
                 except Exception as e2:
                     print(f"[LLMService] Gemini fallback model error: {e2}")
-
-
 
         # Route 2: OpenAI (Valid OpenAI keys start with 'sk-')
         if openai_key and openai_key.startswith("sk-") and len(openai_key) > 20:
@@ -70,8 +68,8 @@ class LLMService:
                     model=chosen_model,
                     openai_api_key=openai_key,
                     temperature=temperature,
-                    request_timeout=10,
-                    max_retries=1
+                    request_timeout=15,
+                    max_retries=2
                 )
             except Exception as e:
                 print(f"[LLMService] OpenAI model initialization error: {e}")
@@ -81,15 +79,19 @@ class LLMService:
             try:
                 if "gemini" in (model_name or "").lower():
                     return ChatGoogleGenerativeAI(
-                        model=model_name or "gemini-1.5-flash",
+                        model=model_name or "gemini-3.5-flash-lite",
                         google_api_key=api_key,
-                        temperature=temperature
+                        temperature=temperature,
+                        timeout=25,
+                        max_retries=3
                     )
                 else:
                     return ChatOpenAI(
                         model=model_name or "gpt-4o-mini",
                         openai_api_key=api_key,
-                        temperature=temperature
+                        temperature=temperature,
+                        request_timeout=15,
+                        max_retries=2
                     )
             except Exception as e:
                 print(f"[LLMService] Fallback LLM initialization error: {e}")
@@ -105,8 +107,43 @@ class LLMService:
     @classmethod
     def get_synthesis_model(cls, api_key: Optional[str] = None, temperature: float = 0.2) -> Optional[BaseChatModel]:
         """Returns the synthesis/large tier model configured for answer generation and revision (Temp 0.2)."""
-        synthesis_model_name = getattr(config, "LLM_SYNTHESIS_MODEL", "gemini-3.6-flash")
+        synthesis_model_name = getattr(config, "LLM_SYNTHESIS_MODEL", "gemini-3.5-flash-lite")
         return cls.get_chat_model(api_key=api_key, model_name=synthesis_model_name, temperature=temperature)
+
+    @classmethod
+    def invoke_prompt_with_fallback(
+        cls,
+        prompt: ChatPromptTemplate,
+        input_vars: Dict[str, Any],
+        api_key: Optional[str] = None,
+        preferred_model: Optional[str] = None,
+        temperature: float = 0.0
+    ) -> Optional[str]:
+        """
+        Executes prompt across a resilient candidate model ladder.
+        Automatically falls back if a model throws 429 RESOURCE_EXHAUSTED or 404 NOT_FOUND.
+        """
+        from langchain_core.output_parsers import StrOutputParser
+        candidate_models = []
+        if preferred_model:
+            candidate_models.append(preferred_model)
+        for m in ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gpt-4o-mini"]:
+            if m not in candidate_models:
+                candidate_models.append(m)
+
+        for m_name in candidate_models:
+            model = cls.get_chat_model(api_key=api_key, model_name=m_name, temperature=temperature)
+            if not model:
+                continue
+            try:
+                chain = prompt | model | StrOutputParser()
+                output = chain.invoke(input_vars)
+                if output and output.strip():
+                    return output.strip()
+            except Exception as e:
+                print(f"[LLMService] Invocation error with {m_name}: {e}. Trying next model in ladder...")
+                continue
+        return None
 
     @staticmethod
     def extract_json(raw_text: str) -> Optional[Any]:

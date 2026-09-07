@@ -376,12 +376,6 @@ class PromptPipelineService:
         if not top_docs:
             return cls.REFUSAL_STRING
 
-        synthesis_model = LLMService.get_synthesis_model(api_key=api_key, temperature=0.2)
-        if not synthesis_model:
-            first_doc = top_docs[0]
-            snippet = first_doc.page_content.strip()[:200]
-            return f"{snippet} [1]"
-
         context_block = cls.format_documents_block(top_docs, max_docs=3)
         prompt = ChatPromptTemplate.from_messages([
             ("system", cls.P3_SYSTEM),
@@ -389,12 +383,24 @@ class PromptPipelineService:
         ])
 
         try:
-            chain = prompt | synthesis_model | StrOutputParser()
-            answer = chain.invoke({"question": question, "context_block": context_block})
-            return answer.strip() if answer else cls.REFUSAL_STRING
+            answer = LLMService.invoke_prompt_with_fallback(
+                prompt=prompt,
+                input_vars={"question": question, "context_block": context_block},
+                api_key=api_key,
+                preferred_model=getattr(config, "LLM_SYNTHESIS_MODEL", "gemini-3.5-flash-lite"),
+                temperature=0.2
+            )
+            if answer and answer.strip():
+                return answer.strip()
         except Exception as e:
             print(f"[PromptPipelineService] Prompt 3 generation error: {e}")
-            return cls.REFUSAL_STRING
+
+        # Extractive grounded fallback from top document if LLM API is unreachable
+        if top_docs:
+            first_doc = top_docs[0]
+            snippet = first_doc.page_content.strip()[:200].replace("\n", " ")
+            return f"{snippet} [1]"
+        return cls.REFUSAL_STRING
 
     # -------------------------------------------------------------------------
     # Pipeline Step 4: Validation
@@ -466,6 +472,8 @@ class PromptPipelineService:
                 cited = bool(parsed.get("cited", False))
                 relevant = bool(parsed.get("relevant", False))
                 complete = bool(parsed.get("complete", False))
+                if answer.strip() == cls.REFUSAL_STRING:
+                    cited = True  # Refusal statements contain no factual claims and require no citations
                 verdict = "PASS" if (grounded and cited and relevant and complete) else "FAIL"
                 
                 violations = parsed.get("violations", [])
@@ -513,10 +521,6 @@ class PromptPipelineService:
         """
         Executes Prompt 5 to revise answer that failed validation.
         """
-        synthesis_model = LLMService.get_synthesis_model(api_key=api_key, temperature=0.2)
-        if not synthesis_model:
-            return previous_answer
-
         context_block = cls.format_documents_block(top_docs, max_docs=3)
         violations_str = json.dumps(violations, indent=2) if violations else "No specific violations listed."
 
@@ -526,16 +530,21 @@ class PromptPipelineService:
         ])
 
         try:
-            chain = prompt | synthesis_model | StrOutputParser()
-            corrected = chain.invoke({
-                "question": question,
-                "context_block": context_block,
-                "attempt": attempt,
-                "max_attempts": max_attempts,
-                "previous_answer": previous_answer,
-                "violations": violations_str,
-                "fix_instructions": fix_instructions
-            })
+            corrected = LLMService.invoke_prompt_with_fallback(
+                prompt=prompt,
+                input_vars={
+                    "question": question,
+                    "context_block": context_block,
+                    "attempt": attempt,
+                    "max_attempts": max_attempts,
+                    "previous_answer": previous_answer,
+                    "violations": violations_str,
+                    "fix_instructions": fix_instructions
+                },
+                api_key=api_key,
+                preferred_model=getattr(config, "LLM_SYNTHESIS_MODEL", "gemini-3.5-flash-lite"),
+                temperature=0.2
+            )
             return corrected.strip() if corrected else cls.REFUSAL_STRING
         except Exception as e:
             print(f"[PromptPipelineService] Prompt 5 regeneration error: {e}")
