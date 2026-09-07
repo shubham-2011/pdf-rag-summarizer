@@ -41,7 +41,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - DOMAIN_NAME=${DOMAIN_NAME:-:80}
+      - DOMAIN_NAME=${DOMAIN_NAME:-3-18-112-83.sslip.io}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
